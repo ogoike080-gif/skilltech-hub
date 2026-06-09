@@ -1,12 +1,9 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 RUN npm run build
-
-FROM nginx:latest
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
+COPY server.js .
 EXPOSE 80
-CMD ["/bin/sh", "-c", "echo 'Starting nginx...' && nginx -g 'daemon off;' || (echo 'nginx failed'; sleep 300)"]
+CMD ["node", "server.js"]
