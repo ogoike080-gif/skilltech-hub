@@ -5,7 +5,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine AS runner
+FROM nginx:latest
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY docker/nginx-spa.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
