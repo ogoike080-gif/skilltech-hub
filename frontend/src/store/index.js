@@ -38,9 +38,9 @@ const coursesSlice = createSlice({
   name: 'courses',
   initialState: { list: [], current: null, myCourses: [], loading: false, pagination: null },
   reducers: {
-    setCourses(state, { payload })    { state.list = payload.data; state.pagination = payload.pagination; },
+    setCourses(state, { payload })    { state.list = payload.data || payload || []; state.pagination = payload.pagination || null; },
     setCurrentCourse(state, { payload }) { state.current = payload; },
-    setMyCourses(state, { payload })  { state.myCourses = payload; },
+    setMyCourses(state, { payload })  { state.myCourses = payload || []; },
     setLoading(state, { payload })    { state.loading = payload; },
     updateProgress(state, { payload }) {
       const c = state.myCourses.find(x => x.id === payload.courseId);
