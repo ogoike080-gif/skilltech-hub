@@ -11,7 +11,18 @@ export function useCourses() {
 
   const fetchCourses = async (params = {}) => {
     const { data } = await api.get('/courses', { params });
-    dispatch(courseActions.setCourses(data));
+
+    console.log('Courses API Response:', data);
+
+    dispatch(
+      courseActions.setCourses(
+        Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : []
+      )
+    );
   };
 
   const fetchCourse = async (slug) => {
