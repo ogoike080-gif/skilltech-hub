@@ -44,11 +44,11 @@ export default function LoginPage() {
         <div className="card">
           {/* OAuth buttons */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <a href="/api/auth/google" className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
+            <a href={`${import.meta.env.VITE_API_URL}/api/auth/google`} className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-4 h-4" />
               Google
             </a>
-            <a href="/api/auth/github" className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
+            <a href={`${import.meta.env.VITE_API_URL}/api/auth/github`} className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
               <Github size={16} /> GitHub
             </a>
           </div>
