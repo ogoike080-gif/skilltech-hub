@@ -1,14 +1,8 @@
-// ============================================================
-// pages/auth/LoginPage.jsx
-// ============================================================
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Zap, Github } from 'lucide-react';
 import { useAuth } from '../../hooks';
-
-export default function LoginPage() {
-  return <div>Login Page</div>;
-}
 
 export default function LoginPage() {
   const [form, setForm]   = useState({ email: '', password: '' });
