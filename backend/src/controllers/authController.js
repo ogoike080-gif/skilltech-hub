@@ -7,6 +7,15 @@ const { sendWelcomeEmail, sendPasswordResetEmail } = require('../services/email'
 const { logger } = require('../utils/logger');
 const { AppError } = require('../utils/errors');
 
+
+ALTER TABLE users
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE,
+ADD COLUMN is_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN verify_token VARCHAR(255) NULL,
+ADD COLUMN reset_token VARCHAR(255) NULL,
+ADD COLUMN reset_token_expires DATETIME NULL,
+ADD COLUMN last_login_at DATETIME NULL;
+
 // ── Token generation ───────────────────────────────────────
 
 function generateTokens(userId, role) {

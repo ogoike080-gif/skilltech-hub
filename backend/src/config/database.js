@@ -59,3 +59,18 @@ async function transaction(callback) {
 }
 
 module.exports = { connectDB, getDB, query, transaction };
+
+
+const [rows] = await pool.query('SELECT DATABASE() AS db');
+console.log('CONNECTED DATABASE:', rows[0].db);
+
+const [cols] = await pool.query(`
+SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME='users'
+`);
+
+console.log(
+  'USERS TABLE COLUMNS:',
+  cols.map(c => c.COLUMN_NAME)
+);
