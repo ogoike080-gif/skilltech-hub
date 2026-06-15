@@ -70,7 +70,3 @@ FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_NAME='users'
 `);
 
-console.log(
-  'USERS TABLE COLUMNS:',
-  cols.map(c => c.COLUMN_NAME)
-);
