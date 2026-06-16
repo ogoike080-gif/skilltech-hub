@@ -5,22 +5,33 @@ let pool;
 
 async function connectDB() {
   pool = mysql.createPool({
-    host:               process.env.DB_HOST || 'localhost',
-    port:               parseInt(process.env.DB_PORT) || 3306,
-    database:           process.env.DB_NAME || 'skilltech_hub',
-    user:               process.env.DB_USER || 'root',
-    password:           process.env.DB_PASSWORD || '',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 3306,
+    database: process.env.DB_NAME || 'skilltech_hub',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
     waitForConnections: true,
-    connectionLimit:    parseInt(process.env.DB_POOL_MAX) || 20,
-    queueLimit:         0,
-    timezone:           'Z',
-    charset:            'utf8mb4',
+    connectionLimit: parseInt(process.env.DB_POOL_MAX) || 20,
+    queueLimit: 0,
+    timezone: 'Z',
+    charset: 'utf8mb4',
   });
 
-  // Test connection
   const conn = await pool.getConnection();
   await conn.ping();
   conn.release();
+
+  const [rows] = await pool.query('SELECT DATABASE() AS db');
+  console.log('CONNECTED DATABASE:', rows[0].db);
+
+  const [cols] = await pool.query(`
+    SELECT COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME='users'
+  `);
+
+  console.log('USERS TABLE COLUMNS:', cols.map(c => c.COLUMN_NAME));
+
   return pool;
 }
 
@@ -29,7 +40,6 @@ function getDB() {
   return pool;
 }
 
-// Convenience query wrapper with logging
 async function query(sql, params = []) {
   const db = getDB();
   try {
@@ -41,11 +51,11 @@ async function query(sql, params = []) {
   }
 }
 
-// Transaction helper
 async function transaction(callback) {
   const db = getDB();
   const conn = await db.getConnection();
   await conn.beginTransaction();
+
   try {
     const result = await callback(conn);
     await conn.commit();
@@ -59,14 +69,3 @@ async function transaction(callback) {
 }
 
 module.exports = { connectDB, getDB, query, transaction };
-
-
-const [rows] = await pool.query('SELECT DATABASE() AS db');
-console.log('CONNECTED DATABASE:', rows[0].db);
-
-const [cols] = await pool.query(`
-SELECT COLUMN_NAME
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME='users'
-`);
-
