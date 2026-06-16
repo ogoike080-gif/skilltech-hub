@@ -9,6 +9,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 
 
 // Lazy-loaded pages
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const HomePage         = lazy(() => import('./pages/HomePage'));
 const LoginPage        = lazy(() => import('./pages/auth/LoginPage'));
 const RegisterPage     = lazy(() => import('./pages/auth/RegisterPage'));
@@ -58,7 +59,10 @@ export default function App() {
       />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-
+          
+         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           {/* ── OAuth callback — MUST be top-level, no layout wrapper ── */}
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/auth/error"    element={<AuthErrorPage />} />

@@ -86,6 +86,9 @@ export default function LoginPage() {
               </div>
             </div>
 
+            const ForgotPasswordPage = lazy(() =>
+  import('./pages/auth/ForgotPasswordPage')
+);
 
 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
