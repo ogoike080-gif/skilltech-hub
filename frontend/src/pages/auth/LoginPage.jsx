@@ -90,7 +90,6 @@ export default function LoginPage() {
   import('./pages/auth/ForgotPasswordPage')
 );
 
-<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2">
               {loading ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</span> : 'Sign In'}
