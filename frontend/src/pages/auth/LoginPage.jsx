@@ -42,28 +42,31 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="card">
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <a
-              href={`${import.meta.env.VITE_API_URL}/api/auth/google`}
-              className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
-            >
-              <img
-                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                alt="Google"
-                className="w-4 h-4"
-              />
-              Google
-            </a>
+        <div className="grid grid-cols-2 gap-3 mb-6">
 
-            <a
-              href={`${import.meta.env.VITE_API_URL}/api/auth/github`}
-              className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
-            >
-              <Github size={16} />
-              GitHub
-            </a>
-          </div>
+  <a
+    href={`${API_URL}/api/auth/google`}
+    className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
+  >
+    <img
+      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+      alt="Google"
+      className="w-4 h-4"
+    />
+    Google
+  </a>
+
+  <a
+    href={`${API_URL}/api/auth/github`}
+    className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
+  >
+    <Github size={16} />
+    GitHub
+  </a>
+
+</div>
+
+<div className="flex items-center gap-3 mb-6">
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-white/10" />
