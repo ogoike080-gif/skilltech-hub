@@ -46,7 +46,13 @@ async function query(sql, params = []) {
     const [rows] = await db.execute(sql, params);
     return rows;
   } catch (err) {
-    logger.error('DB query error:', { sql, params, err: err.message });
+   console.error('========== DB ERROR ==========');
+console.error('SQL:', sql);
+console.error('PARAMS:', params);
+console.error('MESSAGE:', err.message);
+console.error('CODE:', err.code);
+console.error('STACK:', err.stack);
+console.error('==============================');
     throw err;
   }
 }
