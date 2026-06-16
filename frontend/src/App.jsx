@@ -8,6 +8,13 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import LoadingScreen from './components/ui/LoadingScreen';
 
 
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
+
+<Route
+  path="/forgot-password"
+  element={<ForgotPasswordPage />}
+/>
+
 // Lazy-loaded pages
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const HomePage         = lazy(() => import('./pages/HomePage'));

@@ -1,12 +1,11 @@
-
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Zap, Github } from 'lucide-react';
 import { useAuth } from '../../hooks';
 
 export default function LoginPage() {
-  const [form, setForm]   = useState({ email: '', password: '' });
-  const [show, setShow]   = useState(false);
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -15,6 +14,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       await login(form.email, form.password);
     } catch (err) {
@@ -35,19 +35,33 @@ export default function LoginPage() {
             </div>
             <span className="gradient-text">SkillTech Hub</span>
           </Link>
+
           <h1 className="text-3xl font-bold text-white mt-4">Welcome back</h1>
-          <p className="text-white/50 mt-1">Sign in to continue your learning journey</p>
+          <p className="text-white/50 mt-1">
+            Sign in to continue your learning journey
+          </p>
         </div>
 
         <div className="card">
-          {/* OAuth buttons */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <a href={`${import.meta.env.VITE_API_URL}/api/auth/google`} className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-4 h-4" />
+            <a
+              href={`${import.meta.env.VITE_API_URL}/api/auth/google`}
+              className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
+            >
+              <img
+                src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                alt="Google"
+                className="w-4 h-4"
+              />
               Google
             </a>
-            <a href={`${import.meta.env.VITE_API_URL}/api/auth/github`} className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
-              <Github size={16} /> GitHub
+
+            <a
+              href={`${import.meta.env.VITE_API_URL}/api/auth/github`}
+              className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5"
+            >
+              <Github size={16} />
+              GitHub
             </a>
           </div>
 
@@ -65,38 +79,70 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-white/70 text-sm font-medium mb-1.5">Email</label>
-              <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
-                className="input" placeholder="you@example.com" />
+              <label className="block text-white/70 text-sm font-medium mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="input"
+                placeholder="you@example.com"
+              />
             </div>
 
             <div>
-              <label className="block text-white/70 text-sm font-medium mb-1.5">Password</label>
+              <label className="block text-white/70 text-sm font-medium mb-1.5">
+                Password
+              </label>
+
               <div className="relative">
-                <input type={show ? 'text' : 'password'} required value={form.password}
-                  onChange={e => setForm({ ...form, password: e.target.value })}
-                  className="input pr-10" placeholder="••••••••" />
-                <button type="button" onClick={() => setShow(!show)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70">
+                <input
+                  type={show ? 'text' : 'password'}
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="input pr-10"
+                  placeholder="••••••••"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShow(!show)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70"
+                >
                   {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+
               <div className="text-right mt-1.5">
-                <Link to="/forgot-password" className="text-brand-400 text-xs hover:text-brand-300">Forgot password?</Link>
+                <Link
+                  to="/forgot-password"
+                  className="text-brand-400 text-xs hover:text-brand-300"
+                >
+                  Forgot password?
+                </Link>
               </div>
             </div>
 
-
-<Route path="/forgot-password" element={<ForgotPasswordPage />} />
-
-            <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2">
-              {loading ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</span> : 'Sign In'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-3 mt-2"
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
           <p className="text-center text-white/40 text-sm mt-6">
             Don't have an account?{' '}
-            <Link to="/register" className="text-brand-400 hover:text-brand-300 font-medium">Create one free</Link>
+            <Link
+              to="/register"
+              className="text-brand-400 hover:text-brand-300 font-medium"
+            >
+              Create one free
+            </Link>
           </p>
         </div>
       </div>
