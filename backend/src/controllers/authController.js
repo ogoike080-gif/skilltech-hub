@@ -62,7 +62,7 @@ exports.register = async (req, res, next) => {
     );
 
     const { accessToken, refreshToken } = generateTokens(userId, 'student');
-    await saveRefreshToken(userId, refreshToken);
+    //await saveRefreshToken(userId, refreshToken);
 
     res.status(201).json({
       success: true,
