@@ -3,16 +3,19 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://skilltech-hub-backend-production.up.railway.app';
 
 console.log('================================');
 console.log('VITE_API_URL:', API_URL);
+console.log('API_URL FINAL:', API_URL);
 console.log('MODE:', import.meta.env.MODE);
 console.log('================================');
 
 if (!API_URL) {
   console.error(
-    '❌ VITE_API_URL is missing. Check Railway Frontend Variables.'
+    'VITE_API_URL is missing. Check Railway Frontend Variables.'
   );
 }
 
