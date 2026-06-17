@@ -1,47 +1,99 @@
-// utils/api.js
+// frontend/src/utils/api.js
+
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
+console.log('================================');
+console.log('VITE_API_URL:', API_URL);
+console.log('MODE:', import.meta.env.MODE);
+console.log('================================');
+
+if (!API_URL) {
+  console.error(
+    '❌ VITE_API_URL is missing. Check Railway Frontend Variables.'
+  );
+}
+
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
+  baseURL: `${API_URL}/api`,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('sth_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('sth_token');
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  error => Promise.reject(error)
+);
 
 api.interceptors.response.use(
-  res => res,
-  async err => {
-    const original = err.config;
-    if (err.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const refresh = localStorage.getItem('sth_refresh');
-        if (!refresh) throw new Error('No refresh token');
+  response => response,
 
-        const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
-          { refreshToken: refresh }
+  async error => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest?._retry
+    ) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('sth_refresh');
+
+        if (!refreshToken) {
+          throw new Error('No refresh token found');
+        }
+
+        const response = await axios.post(
+          `${API_URL}/api/auth/refresh`,
+          {
+            refreshToken,
+          }
         );
 
-        localStorage.setItem('sth_token', data.data.accessToken);
-        localStorage.setItem('sth_refresh', data.data.refreshToken);
-        original.headers.Authorization = `Bearer ${data.data.accessToken}`;
-        return api(original);
-      } catch {
-        localStorage.clear();
+        const { accessToken, refreshToken: newRefreshToken } =
+          response.data.data;
+
+        localStorage.setItem('sth_token', accessToken);
+        localStorage.setItem('sth_refresh', newRefreshToken);
+
+        originalRequest.headers.Authorization =
+          `Bearer ${accessToken}`;
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        console.error('Refresh token failed:', refreshError);
+
+        localStorage.removeItem('sth_token');
+        localStorage.removeItem('sth_refresh');
+
         window.location.href = '/login';
+
+        return Promise.reject(refreshError);
       }
     }
 
-    const message = err.response?.data?.message || 'Something went wrong';
-    if (err.response?.status !== 401) toast.error(message);
-    return Promise.reject(err);
+    const message =
+      error.response?.data?.message ||
+      'Something went wrong';
+
+    if (error.response?.status !== 401) {
+      toast.error(message);
+    }
+
+    return Promise.reject(error);
   }
 );
 

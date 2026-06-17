@@ -36,6 +36,7 @@ export default function OAuthCallbackPage() {
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
 
       const API_URL = import.meta.env.VITE_API_URL || '';
+      console.log("API_URL =", API_URL);
 
       fetch(`${API_URL}/api/auth/me`, {
         headers: {

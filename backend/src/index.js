@@ -32,7 +32,8 @@ const aiRoutes          = require('./routes/ai');
 const adminRoutes       = require('./routes/admin');
 const notifRoutes       = require('./routes/notifications');
 
-const app    = express();
+const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // ── CRITICAL: Trust Railway's reverse proxy ─────────────────
