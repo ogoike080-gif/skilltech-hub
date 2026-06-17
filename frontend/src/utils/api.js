@@ -3,8 +3,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-
-`${API_URL}/api/auth/refresh`
+const API_URL = import.meta.env.VITE_API_URL;
 
 console.log('================================');
 console.log('VITE_API_URL:', API_URL);
@@ -16,10 +15,6 @@ if (!API_URL) {
     '❌ VITE_API_URL is missing. Check Railway Frontend Variables.'
   );
 }
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  'https://skilltech-hub-production.up.railway.app';
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
