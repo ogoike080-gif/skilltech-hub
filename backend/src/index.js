@@ -32,25 +32,54 @@ const aiRoutes          = require('./routes/ai');
 const adminRoutes       = require('./routes/admin');
 const notifRoutes       = require('./routes/notifications');
 
-const app = express();
-app.set('trust proxy', 1);
+const app    = express();
 const server = http.createServer(app);
 
 // ── CRITICAL: Trust Railway's reverse proxy ─────────────────
-// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
-// because Railway sits behind a proxy that sets X-Forwarded-For headers.
 app.set('trust proxy', 1);
+
+// ── CORS: build an allow-list so multiple known frontends work ──
+// Accepts CLIENT_URL plus any *.railway.app preview/staging domains,
+// and falls back gracefully instead of silently blocking everything.
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'http://localhost:5173',
+].filter(Boolean);
+
+const corsOptionsDelegate = (origin, callback) => {
+  // No origin = same-origin / curl / server-to-server — allow it
+  if (!origin) return callback(null, true);
+
+  const isAllowed =
+    allowedOrigins.includes(origin) ||
+    /\.railway\.app$/.test(new URL(origin).hostname); // allow any railway.app subdomain
+
+  if (isAllowed) {
+    callback(null, true);
+  } else {
+    logger.warn(`[CORS] Blocked origin: ${origin}`);
+    callback(null, false);
+  }
+};
 
 // ── Socket.io ──────────────────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL || 'http://localhost:3000', methods: ['GET','POST'], credentials: true },
+  cors: { origin: corsOptionsDelegate, methods: ['GET', 'POST'], credentials: true },
 });
 setupSocketHandlers(io);
 app.set('io', io);
 
 // ── Security ───────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: false }));
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }));
+app.use(cors({
+  origin: corsOptionsDelegate,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+// Explicitly handle preflight for all routes
+app.options('*', cors({ origin: corsOptionsDelegate, credentials: true }));
 
 // Raw body for webhooks (must be before json parser)
 app.use('/api/payments/webhook/stripe',   express.raw({ type: 'application/json' }));
@@ -75,6 +104,7 @@ app.use(passport.initialize());
 // ── Health check ───────────────────────────────────────────
 app.get('/health', (req, res) => res.json({
   status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime(),
+  clientUrl: process.env.CLIENT_URL || 'NOT SET',
 }));
 
 // ── Routes ─────────────────────────────────────────────────
@@ -108,7 +138,6 @@ async function bootstrap() {
     logger.info('✅ MySQL connected');
   } catch (err) {
     logger.error('❌ MySQL connection failed:', err.message);
-    logger.error('   Make sure XAMPP MySQL is running and DB_PASSWORD is correct in .env');
     process.exit(1);
   }
 
@@ -122,9 +151,10 @@ async function bootstrap() {
   server.listen(PORT, () => {
     logger.info('');
     logger.info('🚀 SkillTech Hub API is running!');
-    logger.info(`   Local:   http://localhost:${PORT}`);
-    logger.info(`   Health:  http://localhost:${PORT}/health`);
-    logger.info(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`   Local:      http://localhost:${PORT}`);
+    logger.info(`   Health:     http://localhost:${PORT}/health`);
+    logger.info(`   Mode:       ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`   CLIENT_URL: ${process.env.CLIENT_URL || '⚠️  NOT SET — CORS will block frontend!'}`);
     logger.info('');
   });
 }
