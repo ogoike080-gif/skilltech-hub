@@ -35,6 +35,11 @@ const notifRoutes       = require('./routes/notifications');
 const app    = express();
 const server = http.createServer(app);
 
+// ── CRITICAL: Trust Railway's reverse proxy ─────────────────
+// Without this, express-rate-limit throws ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// because Railway sits behind a proxy that sets X-Forwarded-For headers.
+app.set('trust proxy', 1);
+
 // ── Socket.io ──────────────────────────────────────────────
 const io = new Server(server, {
   cors: { origin: process.env.CLIENT_URL || 'http://localhost:3000', methods: ['GET','POST'], credentials: true },
