@@ -2,7 +2,11 @@ const { logger } = require('../utils/logger');
 const { AppError } = require('../utils/errors');
 
 function errorHandler(err, req, res, next) {
-  let { statusCode = 500, message, isOperational } = err;
+  let {
+    statusCode = 500,
+    message = 'Something went wrong. Please try again.',
+    isOperational = false,
+  } = err;
 
   if (err.code === 'ER_DUP_ENTRY') {
     statusCode = 409;
@@ -37,16 +41,20 @@ function errorHandler(err, req, res, next) {
   }
 
   if (!isOperational) {
-    logger.error('Unexpected error:', {
-      message: err.message,
-      stack: err.stack,
-      url: req.originalUrl,
-      method: req.method,
-      userId: req.user?.userId,
-    });
+    console.error(err);
+
+    if (logger?.error) {
+      logger.error('Unexpected error:', {
+        message: err.message,
+        stack: err.stack,
+        url: req.originalUrl,
+        method: req.method,
+        userId: req.user?.userId,
+      });
+    }
   }
 
-  res.status(statusCode).json({
+  return res.status(statusCode).json({
     success: false,
     message: isOperational
       ? message
@@ -58,4 +66,7 @@ function errorHandler(err, req, res, next) {
   });
 }
 
-module.exports = { errorHandler, AppError };
+module.exports = {
+  errorHandler,
+  AppError,
+};
