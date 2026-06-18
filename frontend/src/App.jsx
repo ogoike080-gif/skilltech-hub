@@ -6,7 +6,7 @@ import { selectIsAuth, selectUser } from './store';
 import MainLayout from './components/layout/MainLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoadingScreen from './components/ui/LoadingScreen';
-
+console.log('App.jsx .Env', import.meta.env);
 
 // Lazy-loaded pages
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
