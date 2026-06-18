@@ -6,7 +6,7 @@
 -- Table structure for table `ai_conversations`
 --
 
-CREATE TABLE `ai_conversations` (
+CREATE TABLE IF NOT EXISTS `ai_conversations` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `course_id` char(36) DEFAULT NULL,
@@ -46,7 +46,7 @@ INSERT IGNORE INTO `ai_conversations` (`id`, `user_id`, `course_id`, `lesson_id`
 -- Table structure for table `ai_messages`
 --
 
-CREATE TABLE `ai_messages` (
+CREATE TABLE IF NOT EXISTS `ai_messages` (
   `id` char(36) NOT NULL,
   `conversation_id` char(36) NOT NULL,
   `role` enum('user','assistant') NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE `ai_messages` (
 -- Table structure for table `assessments`
 --
 
-CREATE TABLE `assessments` (
+CREATE TABLE IF NOT EXISTS `assessments` (
   `id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
   `lesson_id` char(36) DEFAULT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE `assessments` (
 -- Table structure for table `assessment_attempts`
 --
 
-CREATE TABLE `assessment_attempts` (
+CREATE TABLE IF NOT EXISTS `assessment_attempts` (
   `id` char(36) NOT NULL,
   `assessment_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE `assessment_attempts` (
 -- Table structure for table `badges`
 --
 
-CREATE TABLE `badges` (
+CREATE TABLE IF NOT EXISTS `badges` (
   `id` char(36) NOT NULL,
   `name` varchar(100) NOT NULL,
   `description` varchar(500) DEFAULT NULL,
@@ -128,7 +128,7 @@ INSERT IGNORE INTO `badges` (`id`, `name`, `description`, `icon_url`, `badge_con
 -- Table structure for table `certificates`
 --
 
-CREATE TABLE `certificates` (
+CREATE TABLE IF NOT EXISTS `certificates` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
@@ -146,7 +146,7 @@ CREATE TABLE `certificates` (
 -- Table structure for table `coupons`
 --
 
-CREATE TABLE `coupons` (
+CREATE TABLE IF NOT EXISTS `coupons` (
   `id` char(36) NOT NULL,
   `code` varchar(50) NOT NULL,
   `type` enum('percent','fixed') NOT NULL DEFAULT 'percent',
@@ -165,7 +165,7 @@ CREATE TABLE `coupons` (
 -- Table structure for table `courses`
 --
 
-CREATE TABLE `courses` (
+CREATE TABLE IF NOT EXISTS `courses` (
   `id` char(36) NOT NULL,
   `school_id` char(36) NOT NULL,
   `instructor_id` char(36) NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE `courses` (
 -- Table structure for table `enrollments`
 --
 
-CREATE TABLE `enrollments` (
+CREATE TABLE IF NOT EXISTS `enrollments` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
@@ -222,7 +222,7 @@ CREATE TABLE `enrollments` (
 -- Table structure for table `forum_categories`
 --
 
-CREATE TABLE `forum_categories` (
+CREATE TABLE IF NOT EXISTS `forum_categories` (
   `id` char(36) NOT NULL,
   `name` varchar(100) NOT NULL,
   `slug` varchar(100) NOT NULL,
@@ -251,7 +251,7 @@ INSERT IGNORE INTO `forum_categories` (`id`, `name`, `slug`, `description`, `ico
 -- Table structure for table `forum_posts`
 --
 
-CREATE TABLE `forum_posts` (
+CREATE TABLE IF NOT EXISTS `forum_posts` (
   `id` char(36) NOT NULL,
   `category_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
@@ -283,7 +283,7 @@ INSERT IGNORE INTO `forum_posts` (`id`, `category_id`, `user_id`, `parent_id`, `
 -- Table structure for table `forum_votes`
 --
 
-CREATE TABLE `forum_votes` (
+CREATE TABLE IF NOT EXISTS `forum_votes` (
   `id` char(36) NOT NULL,
   `post_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
@@ -303,7 +303,7 @@ INSERT IGNORE INTO `forum_votes` (`id`, `post_id`, `user_id`, `value`) VALUES
 -- Table structure for table `job_listings`
 --
 
-CREATE TABLE `job_listings` (
+CREATE TABLE IF NOT EXISTS `job_listings` (
   `id` char(36) NOT NULL,
   `posted_by` char(36) NOT NULL,
   `company_name` varchar(255) NOT NULL,
@@ -330,7 +330,7 @@ CREATE TABLE `job_listings` (
 -- Table structure for table `lessons`
 --
 
-CREATE TABLE `lessons` (
+CREATE TABLE IF NOT EXISTS `lessons` (
   `id` char(36) NOT NULL,
   `section_id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
@@ -353,7 +353,7 @@ CREATE TABLE `lessons` (
 -- Table structure for table `lesson_progress`
 --
 
-CREATE TABLE `lesson_progress` (
+CREATE TABLE IF NOT EXISTS `lesson_progress` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `lesson_id` char(36) NOT NULL,
@@ -371,7 +371,7 @@ CREATE TABLE `lesson_progress` (
 -- Table structure for table `live_sessions`
 --
 
-CREATE TABLE `live_sessions` (
+CREATE TABLE IF NOT EXISTS `live_sessions` (
   `id` char(36) NOT NULL,
   `course_id` char(36) DEFAULT NULL,
   `instructor_id` char(36) NOT NULL,
@@ -407,7 +407,7 @@ INSERT IGNORE INTO `live_sessions` (`id`, `course_id`, `instructor_id`, `title`,
 -- Table structure for table `mentorship_bookings`
 --
 
-CREATE TABLE `mentorship_bookings` (
+CREATE TABLE IF NOT EXISTS `mentorship_bookings` (
   `id` char(36) NOT NULL,
   `mentor_id` char(36) NOT NULL,
   `student_id` char(36) NOT NULL,
@@ -429,7 +429,7 @@ CREATE TABLE `mentorship_bookings` (
 -- Table structure for table `mentor_availability`
 --
 
-CREATE TABLE `mentor_availability` (
+CREATE TABLE IF NOT EXISTS `mentor_availability` (
   `id` char(36) NOT NULL,
   `mentor_id` char(36) NOT NULL,
   `day_of_week` tinyint(4) NOT NULL,
@@ -443,7 +443,7 @@ CREATE TABLE `mentor_availability` (
 -- Table structure for table `mentor_profiles`
 --
 
-CREATE TABLE `mentor_profiles` (
+CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `hourly_rate` decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -465,7 +465,7 @@ CREATE TABLE `mentor_profiles` (
 -- Table structure for table `notifications`
 --
 
-CREATE TABLE `notifications` (
+CREATE TABLE IF NOT EXISTS `notifications` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `type` varchar(50) NOT NULL,
@@ -483,7 +483,7 @@ CREATE TABLE `notifications` (
 -- Table structure for table `payments`
 --
 
-CREATE TABLE `payments` (
+CREATE TABLE IF NOT EXISTS `payments` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `course_id` char(36) DEFAULT NULL,
@@ -505,7 +505,7 @@ CREATE TABLE `payments` (
 -- Table structure for table `questions`
 --
 
-CREATE TABLE `questions` (
+CREATE TABLE IF NOT EXISTS `questions` (
   `id` char(36) NOT NULL,
   `assessment_id` char(36) NOT NULL,
   `type` enum('mcq','multi_select','short_answer','coding','essay') NOT NULL DEFAULT 'mcq',
@@ -523,7 +523,7 @@ CREATE TABLE `questions` (
 -- Table structure for table `refresh_tokens`
 --
 
-CREATE TABLE `refresh_tokens` (
+CREATE TABLE IF NOT EXISTS `refresh_tokens` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `token` varchar(500) NOT NULL,
@@ -554,7 +554,7 @@ INSERT IGNORE INTO `refresh_tokens` (`id`, `user_id`, `token`, `expires_at`, `cr
 -- Table structure for table `reviews`
 --
 
-CREATE TABLE `reviews` (
+CREATE TABLE IF NOT EXISTS `reviews` (
   `id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
@@ -571,7 +571,7 @@ CREATE TABLE `reviews` (
 -- Table structure for table `schools`
 --
 
-CREATE TABLE `schools` (
+CREATE TABLE IF NOT EXISTS `schools` (
   `id` char(36) NOT NULL,
   `name` varchar(255) NOT NULL,
   `slug` varchar(255) NOT NULL,
@@ -602,7 +602,7 @@ INSERT IGNORE INTO `schools` (`id`, `name`, `slug`, `description`, `icon`, `colo
 -- Table structure for table `sections`
 --
 
-CREATE TABLE `sections` (
+CREATE TABLE IF NOT EXISTS `sections` (
   `id` char(36) NOT NULL,
   `course_id` char(36) NOT NULL,
   `title` varchar(255) NOT NULL,
@@ -616,7 +616,7 @@ CREATE TABLE `sections` (
 -- Table structure for table `session_participants`
 --
 
-CREATE TABLE `session_participants` (
+CREATE TABLE IF NOT EXISTS `session_participants` (
   `id` char(36) NOT NULL,
   `session_id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
@@ -631,7 +631,7 @@ CREATE TABLE `session_participants` (
 -- Table structure for table `social_connections`
 --
 
-CREATE TABLE `social_connections` (
+CREATE TABLE IF NOT EXISTS `social_connections` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `platform` enum('youtube','facebook','instagram','tiktok','linkedin','custom') NOT NULL,
@@ -654,7 +654,7 @@ CREATE TABLE `social_connections` (
 -- Table structure for table `stream_targets`
 --
 
-CREATE TABLE `stream_targets` (
+CREATE TABLE IF NOT EXISTS `stream_targets` (
   `id` char(36) NOT NULL,
   `session_id` char(36) NOT NULL,
   `connection_id` char(36) NOT NULL,
@@ -671,7 +671,7 @@ CREATE TABLE `stream_targets` (
 -- Table structure for table `users`
 --
 
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` char(36) NOT NULL,
   `email` varchar(255) NOT NULL,
   `password_hash` varchar(255) DEFAULT NULL,
@@ -714,7 +714,7 @@ INSERT IGNORE INTO `users` (`id`, `email`, `password_hash`, `first_name`, `last_
 -- Table structure for table `user_badges`
 --
 
-CREATE TABLE `user_badges` (
+CREATE TABLE IF NOT EXISTS `user_badges` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `badge_id` char(36) NOT NULL,
@@ -727,7 +727,7 @@ CREATE TABLE `user_badges` (
 -- Table structure for table `user_points`
 --
 
-CREATE TABLE `user_points` (
+CREATE TABLE IF NOT EXISTS `user_points` (
   `id` char(36) NOT NULL,
   `user_id` char(36) NOT NULL,
   `points` int(11) NOT NULL DEFAULT 0,
