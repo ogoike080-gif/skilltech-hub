@@ -31,11 +31,12 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  res.status(statusCode).json({
-    success: false,
-    message: isOperational ? message : 'Something went wrong. Please try again.',
-    ...(process.env.NODE_ENV === 'development' && !isOperational && { stack: err.stack }),
-  });
-}
+res.status(statusCode).json({
+  success: false,
+  error: err.message,
+  stack: err.stack,
+  code: err.code,
+});
+
 
 module.exports = { errorHandler, AppError };
