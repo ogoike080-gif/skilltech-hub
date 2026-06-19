@@ -9,7 +9,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 console.log('App.jsx .Env', import.meta.env);
 
 const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage'));
-<Route path="/diagnostics" element={<DiagnosticsPage />} />
+
 
 // Lazy-loaded pages
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
@@ -58,6 +58,8 @@ export default function App() {
       <Toaster position="top-right" />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+
+          <Route path="/diagnostics" element={<DiagnosticsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
