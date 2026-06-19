@@ -124,7 +124,7 @@ app.use('/api/jobs',          jobRoutes);
 app.use('/api/ai',            aiRoutes);
 app.use('/api/admin',         adminRoutes);
 app.use('/api/notifications', notifRoutes);
-
+app.use('/api/diagnostics', require('./routes/diagnostics'));
 // ── 404 handler ────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ success: false, message: `Route ${req.method} ${req.path} not found` }));
 

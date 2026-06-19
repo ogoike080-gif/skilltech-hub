@@ -8,6 +8,9 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import LoadingScreen from './components/ui/LoadingScreen';
 console.log('App.jsx .Env', import.meta.env);
 
+const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage'));
+<Route path="/diagnostics" element={<DiagnosticsPage />} />
+
 // Lazy-loaded pages
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
