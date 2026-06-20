@@ -1,21 +1,40 @@
 const express = require('express');
-const router  = express.Router();
-const ctrl    = require('../controllers/adminController');
-const { protect, requireAdmin } = require('../middleware/auth');
+const router = express.Router();
 
+const { protect, requireRole } = require('../middleware/auth');
+const adminController = require('../controllers/adminController');
 
-router.use(protect, requireAdmin);
-router.get('/stats',               ctrl.platformStats);
-router.get('/users',               ctrl.listUsers);
-router.put('/users/:id/role',      ctrl.updateUserRole);
-router.put('/users/:id/ban',       ctrl.banUser);
-router.get('/courses',             ctrl.listCourses);
-router.put('/courses/:id/publish', ctrl.publishCourse);
-router.get('/payments',            ctrl.listPayments);
-router.get('/sessions',            ctrl.listSessions);
+// Protect all admin routes
+router.use(protect, requireRole('admin'));
 
+// Dashboard / platform
+router.get('/stats', adminController.platformStats);
 
-router.get('/live-sessions',                  protect, requireRole('admin'), adminController.listLiveSessionsForAdmin);
-router.post('/live-sessions/:id/force-end',   protect, requireRole('admin'), adminController.forceEndSession);
-router.post('/users/:id/flag',                protect, requireRole('admin'), adminController.flagUser);
+// Users
+router.get('/users', adminController.listUsers);
+router.put('/users/:id/role', adminController.updateUserRole);
+router.put('/users/:id/ban', adminController.banUser);
+router.post('/users/:id/flag', adminController.flagUser);
+
+// Courses
+router.get('/courses', adminController.listCourses);
+router.put('/courses/:id/publish', adminController.publishCourse);
+
+// Payments
+router.get('/payments', adminController.listPayments);
+
+// Sessions
+router.get('/sessions', adminController.listSessions);
+
+// Live sessions
+router.get(
+  '/live-sessions',
+  adminController.listLiveSessionsForAdmin
+);
+
+router.post(
+  '/live-sessions/:id/force-end',
+  adminController.forceEndSession
+);
+
 module.exports = router;
