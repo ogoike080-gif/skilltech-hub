@@ -71,23 +71,26 @@ exports.listCourses = async (req, res, next) => {
     const [{ total }] = await query(countSql, params);
 
     // Main query — limit/offset are now guaranteed integers
-    const dataSql = `
-      SELECT c.id, c.title, c.slug, c.short_desc, c.thumbnail_url,
-             c.level, c.type, c.price, c.currency, c.is_free,
-             c.duration_hours, c.total_lessons, c.total_students,
-             c.avg_rating, c.total_reviews,
-             s.name AS school_name, s.slug AS school_slug, s.color AS school_color,
-             u.first_name, u.last_name, u.avatar_url AS instructor_avatar
-      FROM courses c
-      JOIN schools s ON s.id = c.school_id
-      JOIN users u   ON u.id = c.instructor_id
-      ${whereSQL}
-      ORDER BY ${orderBy}
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const sessions = await query(sql, params);
+const dataSql = `
+SELECT c.id, c.title, c.slug, c.short_desc, c.thumbnail_url,
+       c.level, c.type, c.price, c.currency, c.is_free,
+       c.duration_hours, c.total_lessons, c.total_students,
+       c.avg_rating, c.total_reviews,
+       s.name AS school_name,
+       s.slug AS school_slug,
+       s.color AS school_color,
+       u.first_name,
+       u.last_name,
+       u.avatar_url AS instructor_avatar
+FROM courses c
+JOIN schools s ON s.id = c.school_id
+JOIN users u ON u.id = c.instructor_id
+${whereSQL}
+ORDER BY ${orderBy}
+LIMIT ${limit} OFFSET ${offset}
+`;
 
-    const courses = await query(dataSql, dataParams);
+const courses = await query(dataSql, params);
 
     res.json({
       success: true,

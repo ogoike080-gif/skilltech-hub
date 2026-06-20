@@ -222,20 +222,26 @@ exports.listSessions = async (req, res, next) => {
     const pageNum = parseInt(page, 10) || 1;
     const offset = (pageNum - 1) * limit;
 
-    const dataSql = `
-      SELECT ls.id, ls.title, ls.description, ls.scheduled_at,
-             ls.duration_min, ls.status, ls.is_recorded, ls.is_public,
-             ls.max_participants, ls.current_participants, ls.price, ls.recording_url,
-             u.id AS instructor_id, u.first_name, u.last_name, u.avatar_url,
-             c.title AS course_title, c.slug AS course_slug
-      FROM live_sessions ls
-      JOIN users u ON u.id = ls.instructor_id
-      LEFT JOIN courses c ON c.id = ls.course_id
-      WHERE ls.status = ?
-      ORDER BY ls.scheduled_at ASC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const sessions = await query(sql, params);
+ const dataSql = `
+SELECT c.id, c.title, c.slug, c.short_desc, c.thumbnail_url,
+       c.level, c.type, c.price, c.currency, c.is_free,
+       c.duration_hours, c.total_lessons, c.total_students,
+       c.avg_rating, c.total_reviews,
+       s.name AS school_name,
+       s.slug AS school_slug,
+       s.color AS school_color,
+       u.first_name,
+       u.last_name,
+       u.avatar_url AS instructor_avatar
+FROM courses c
+JOIN schools s ON s.id = c.school_id
+JOIN users u ON u.id = c.instructor_id
+${whereSQL}
+ORDER BY ${orderBy}
+LIMIT ${limit} OFFSET ${offset}
+`;
+
+const courses = await query(dataSql, params);
 
     res.json({
       success: true,
