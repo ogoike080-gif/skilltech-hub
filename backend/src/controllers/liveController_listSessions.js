@@ -1,10 +1,12 @@
-// ── List sessions ──────────────────────────────────────────
+// Replace the existing `exports.listSessions` function in
+// backend/src/controllers/liveController.js with this version.
+// Same fix: limit/offset coerced to real integers via parseInt().
 
 exports.listSessions = async (req, res, next) => {
   try {
     const { status = 'scheduled', page = 1 } = req.query;
 
-    // FIX: convert query params to real integers
+    // ✅ FIX: always coerce to real numbers, with safe fallbacks
     const limit = parseInt(req.query.limit, 10) || 20;
     const pageNum = parseInt(page, 10) || 1;
     const offset = (pageNum - 1) * limit;
@@ -22,12 +24,7 @@ exports.listSessions = async (req, res, next) => {
       ORDER BY ls.scheduled_at ASC
       LIMIT ? OFFSET ?
     `;
-
-    const sessions = await query(dataSql, [
-      status,
-      limit,
-      offset
-    ]);
+    const sessions = await query(dataSql, [status, limit, offset]);
 
     res.json({
       success: true,
