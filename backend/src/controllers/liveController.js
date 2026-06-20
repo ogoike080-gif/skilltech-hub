@@ -233,9 +233,9 @@ exports.listSessions = async (req, res, next) => {
       LEFT JOIN courses c ON c.id = ls.course_id
       WHERE ls.status = ?
       ORDER BY ls.scheduled_at ASC
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    const sessions = await query(dataSql, [status, limit, offset]);
+    const sessions = await query(sql, params);
 
     res.json({
       success: true,

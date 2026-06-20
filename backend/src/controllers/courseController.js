@@ -83,9 +83,9 @@ exports.listCourses = async (req, res, next) => {
       JOIN users u   ON u.id = c.instructor_id
       ${whereSQL}
       ORDER BY ${orderBy}
-      LIMIT ? OFFSET ?
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    const dataParams = [...params, limit, offset];
+    const sessions = await query(sql, params);
 
     const courses = await query(dataSql, dataParams);
 
