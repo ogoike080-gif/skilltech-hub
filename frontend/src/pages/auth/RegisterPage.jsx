@@ -61,14 +61,35 @@ export default function RegisterPage() {
 
         <div className="card">
           {/* OAuth */}
+      
+
+
+      In frontend/src/pages/auth/RegisterPage.jsx, find this block:
+
+          {/* OAuth */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <a href="/api/auth/google" className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-4 h-4" />
               Google
             </a>
+            <button onClick={() => window.location.href = '/api/auth/google'}></button>
             <a href="/api/auth/github" className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
               <Github size={16} /> GitHub
             </a>
+          </div>
+
+          {/* OAuth */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <a href={`${import.meta.env.VITE_API_URL || 'https://skilltech-hub-production.up.railway.app'}/api/auth/google`}
+               className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" className="w-4 h-4" />
+              Google
+            </a>
+            <a href={`${import.meta.env.VITE_API_URL || 'https://skilltech-hub-production.up.railway.app'}/api/auth/github`}
+               className="btn-secondary flex items-center justify-center gap-2 text-sm py-2.5">
+              <Github size={16} /> GitHub
+            </a>
+
           </div>
 
           <div className="flex items-center gap-3 mb-6">
