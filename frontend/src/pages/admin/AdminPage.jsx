@@ -10,6 +10,13 @@ import toast from 'react-hot-toast';
 
 import LiveMonitoringTab from './LiveMonitoringTab'
 
+import {
+  LayoutDashboard, Users, BookOpen, CreditCard, Video,
+  Award, TrendingUp, Shield, Bell, ChevronRight,
+  UserCheck, Ban, Eye, CheckCircle, XCircle, BarChart2,
+  Radio
+} from 'lucide-react';
+
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, color }) {
   return (
@@ -374,7 +381,9 @@ const TABS = [
   { id: 'courses',   icon: BookOpen,        label: 'Courses'   },
   { id: 'payments',  icon: CreditCard,      label: 'Payments'  },
   { id: 'sessions',  icon: Video,           label: 'Sessions'  },
+  { id: 'live',      icon: Radio,           label: 'Live Monitoring' },
 ];
+  
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -408,12 +417,13 @@ export default function AdminPage() {
 
       {/* Tab content */}
       <div>
-        {activeTab === 'overview'  && <Overview />}
-        {activeTab === 'users'     && <UsersTab />}
-        {activeTab === 'courses'   && <CoursesTab />}
-        {activeTab === 'payments'  && <PaymentsTab />}
-        {activeTab === 'sessions'  && <SessionsTab />}
-      </div>
+  {activeTab === 'overview'  && <Overview />}
+  {activeTab === 'users'     && <UsersTab />}
+  {activeTab === 'courses'   && <CoursesTab />}
+  {activeTab === 'payments'  && <PaymentsTab />}
+  {activeTab === 'sessions'  && <SessionsTab />}
+  {activeTab === 'live'      && <LiveMonitoringTab />}
+</div>
     </div>
   );
 }
