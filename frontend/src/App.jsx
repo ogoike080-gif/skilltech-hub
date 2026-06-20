@@ -58,7 +58,7 @@ export default function App() {
       <Toaster position="top-right" />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
-
+         <Route path="/join" element={<JoinClassPage />} />
           <Route path="/diagnostics" element={<DiagnosticsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

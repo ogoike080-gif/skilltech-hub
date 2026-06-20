@@ -13,4 +13,9 @@ router.put('/courses/:id/publish', ctrl.publishCourse);
 router.get('/payments',            ctrl.listPayments);
 router.get('/sessions',            ctrl.listSessions);
 
+
+router.get('/live-sessions',                  protect, requireRole('admin'), adminController.listLiveSessionsForAdmin);
+router.post('/live-sessions/:id/force-end',   protect, requireRole('admin'), adminController.forceEndSession);
+router.post('/users/:id/flag',                protect, requireRole('admin'), adminController.flagUser);
+
 module.exports = router;

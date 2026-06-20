@@ -8,6 +8,8 @@ import {
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
+<HostClassCard session={session} />
+
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }) {
   return (

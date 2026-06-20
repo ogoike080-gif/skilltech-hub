@@ -8,6 +8,8 @@ import {
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
+import LiveMonitoringTab from './LiveMonitoringTab'
+
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, color }) {
   return (

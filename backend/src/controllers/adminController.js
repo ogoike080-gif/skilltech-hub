@@ -1,6 +1,92 @@
 const { query } = require('../config/database');
 const { AppError } = require('../utils/errors');
 
+
+
+// ADD these functions to backend/src/controllers/adminController.js
+// (keep your existing platformStats/listUsers/etc — these are additions)
+
+// ── Live monitoring: all sessions happening right now ──────────────
+// Mount as: GET /api/admin/live-sessions
+exports.listLiveSessionsForAdmin = async (req, res, next) => {
+  try {
+    const sessions = await query(`
+      SELECT ls.id, ls.title, ls.status, ls.scheduled_at, ls.started_at,
+             ls.duration_min, ls.current_participants, ls.max_participants,
+             ls.meeting_code,
+             u.id AS instructor_id, u.first_name, u.last_name, u.email,
+             c.title AS course_title
+      FROM live_sessions ls
+      JOIN users u ON u.id = ls.instructor_id
+      LEFT JOIN courses c ON c.id = ls.course_id
+      WHERE ls.status IN ('live', 'scheduled')
+      ORDER BY ls.status = 'live' DESC, ls.scheduled_at ASC
+      LIMIT 200
+    `);
+    res.json({ success: true, data: sessions });
+  } catch (err) { next(err); }
+};
+
+// ── Force-end any session (abuse, technical issue, policy violation) ──
+// Mount as: POST /api/admin/live-sessions/:id/force-end
+exports.forceEndSession = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const [session] = await query('SELECT * FROM live_sessions WHERE id = ?', [id]);
+    if (!session) throw new AppError('Session not found', 404);
+    if (session.status === 'ended') throw new AppError('Session already ended', 400);
+
+    await query(
+      `UPDATE live_sessions SET status = 'ended', ended_at = NOW() WHERE id = ?`,
+      [id]
+    );
+
+    // Log the moderation action
+    await query(
+      `INSERT INTO notifications (id, user_id, title, message, type)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        uuidv4(), session.instructor_id,
+        'Your live class was ended by an administrator',
+        reason || 'This session was force-ended due to a policy violation or technical issue.',
+        'warning',
+      ]
+    ).catch(() => {}); // notifications table optional, don't crash if missing
+
+    // Notify any connected participants via socket so their screen updates instantly
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`session:${id}`).emit('session:force-ended', {
+        sessionId: id,
+        reason: reason || 'Ended by administrator',
+      });
+    }
+
+    res.json({ success: true, message: 'Session force-ended' });
+  } catch (err) { next(err); }
+};
+
+// ── Flag/ban an instructor for repeated abuse ──────────────────────
+// Mount as: POST /api/admin/users/:id/flag
+exports.flagUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    await query('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
+
+    // End all of their live/scheduled sessions immediately
+    await query(
+      `UPDATE live_sessions SET status = 'cancelled' WHERE instructor_id = ? AND status IN ('live','scheduled')`,
+      [id]
+    );
+
+    res.json({ success: true, message: 'User flagged and all their sessions cancelled' });
+  } catch (err) { next(err); }
+};
+
+
 exports.platformStats = async (req, res, next) => {
   try {
     const [[users], [courses], [revenue], [sessions], [certs]] = await Promise.all([
