@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+
 // Livekit loaded lazily so server starts without credentials
 function getLivekit() {
   return require('livekit-server-sdk');
