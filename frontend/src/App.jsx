@@ -15,6 +15,7 @@ const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const JoinClassPage = lazy(() => import('./pages/live/JoinClassPage'));
 const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const OAuthCallbackPage = lazy(() => import('./pages/auth/OAuthCallbackPage'));
 const AuthErrorPage = lazy(() => import('./pages/auth/AuthErrorPage'));
