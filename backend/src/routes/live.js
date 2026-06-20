@@ -1,3 +1,4 @@
+const liveController = require('../controllers/liveController');
 const express = require('express');
 const router  = express.Router();
 const ctrl    = require('../controllers/liveController');
