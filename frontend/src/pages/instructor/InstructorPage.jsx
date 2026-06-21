@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import HostClassCard from '../../components/live/HostClassCard';
 
 <HostClassCard session={session} />
 
