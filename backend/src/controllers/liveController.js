@@ -1,3 +1,4 @@
+const { v4: uuidv4 } = require('uuid');
 
 // Livekit loaded lazily so server starts without credentials
 function getLivekit() {
@@ -13,14 +14,6 @@ const livekitUrl = process.env.LIVEKIT_URL;
 const apiKey     = process.env.LIVEKIT_API_KEY;
 const apiSecret  = process.env.LIVEKIT_API_SECRET;
 
-
-// ADD these new functions to backend/src/controllers/liveController.js
-// (keep your existing schedule/getJoinToken/startSession/endSession/listSessions
-//  functions — these are ADDITIONS, not replacements, except where noted)
-
-const { v4: uuidv4 } = require('uuid');
-// ... (keep your existing requires at the top of the file)
-
 function randomMeetingCode() {
   const n = Math.floor(100000000 + Math.random() * 900000000);
   return String(n);
@@ -29,31 +22,50 @@ function randomPasscode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-// ── UPDATE your existing `schedule` function: generate code+passcode ──
-// Inside exports.schedule, right after `const sessionId = uuidv4();` add:
-//
-//   const meetingCode = randomMeetingCode();
-//   const passcode    = randomPasscode();
-//
-// Then add meeting_code, passcode to the INSERT INTO live_sessions columns
-// and values array (matching positions), e.g.:
-//
-//   INSERT INTO live_sessions
-//     (id, course_id, instructor_id, title, description, scheduled_at,
-//      duration_min, livekit_room_id, rtmp_key, max_participants,
-//      is_recorded, is_public, price, meeting_code, passcode)
-//   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//
-// And in the response, return them too:
-//   res.status(201).json({
-//     success: true,
-//     data: { sessionId, livekitRoomId, rtmpKey, meetingCode, passcode },
-//   });
+// ── Schedule a live session ────────────────────────────────
 
+exports.schedule = async (req, res, next) => {
+  try {
+    const {
+      courseId, title, description, scheduledAt,
+      durationMin = 60, maxParticipants = 500,
+      isRecorded = true, isPublic = false, price = 0,
+    } = req.body;
 
-// ── NEW: Join by meeting code + passcode (students use this) ──────
-// Mount as: POST /api/live/join
-// Body: { meetingCode, passcode }
+    const sessionId     = uuidv4();
+    const livekitRoomId = `room-${sessionId}`;
+    const rtmpKey       = `sk_${uuidv4().replace(/-/g, '')}`;
+    const meetingCode   = randomMeetingCode();
+    const passcode      = randomPasscode();
+
+    await query(`
+      INSERT INTO live_sessions
+        (id, course_id, instructor_id, title, description, scheduled_at,
+         duration_min, livekit_room_id, rtmp_key, max_participants,
+         is_recorded, is_public, price, meeting_code, passcode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      sessionId, courseId || null, req.user.userId, title, description,
+      new Date(scheduledAt), durationMin, livekitRoomId, rtmpKey,
+      maxParticipants, isRecorded ? 1 : 0, isPublic ? 1 : 0, price,
+      meetingCode, passcode
+    ]);
+
+    // Queue reminders (in production, use Bull/BullMQ)
+    scheduleReminders(sessionId, title, new Date(scheduledAt));
+
+    res.status(201).json({
+      success: true,
+      data: { sessionId, livekitRoomId, rtmpKey, meetingCode, passcode },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Join by meeting code + passcode (students use this) ────
+// POST /api/live/join   Body: { meetingCode, passcode }
+
 exports.joinByCode = async (req, res, next) => {
   try {
     const { meetingCode, passcode } = req.body;
@@ -78,8 +90,7 @@ exports.joinByCode = async (req, res, next) => {
     if (session.status === 'cancelled') throw new AppError('This class was cancelled', 410);
     if (session.status === 'scheduled') throw new AppError('The host has not started this class yet', 425);
 
-    // Students NEVER start a session — only join an already-live one.
-    // Re-use the existing getJoinToken logic by redirecting through it:
+    // Students never start a session — only join an already-live one.
     req.params.sessionId = session.id;
     return exports.getJoinToken(req, res, next);
   } catch (err) {
@@ -87,20 +98,9 @@ exports.joinByCode = async (req, res, next) => {
   }
 };
 
+// ── Look up a session by meeting code (pre-join preview) ───
+// GET /api/live/lookup/:meetingCode
 
-// ── UPDATE getJoinToken: enforce instructor-only start ─────────────
-// Inside your existing exports.getJoinToken, the canPublish grant should
-// ALWAYS be tied to isInstructor — confirm this line already exists:
-//
-//   canPublish: isInstructor,
-//
-// This already prevents students from broadcasting — good, no change needed
-// there. The key addition is that students can only reach this function
-// via joinByCode (above) once status === 'live', never via a "start" button.
-
-
-// ── NEW: Get session info by meeting code (for the "Enter Class" pre-screen) ──
-// Mount as: GET /api/live/lookup/:meetingCode
 exports.lookupByCode = async (req, res, next) => {
   try {
     const { meetingCode } = req.params;
@@ -114,46 +114,6 @@ exports.lookupByCode = async (req, res, next) => {
     if (!session) throw new AppError('Invalid meeting code', 404);
 
     res.json({ success: true, data: session });
-  } catch (err) {
-    next(err);
-  }
-};
-
-
-
-// ── Schedule a live session ────────────────────────────────
-
-exports.schedule = async (req, res, next) => {
-  try {
-    const {
-      courseId, title, description, scheduledAt,
-      durationMin = 60, maxParticipants = 500,
-      isRecorded = true, isPublic = false, price = 0,
-    } = req.body;
-
-    const sessionId  = uuidv4();
-    const livekitRoomId = `room-${sessionId}`;
-    const rtmpKey    = `sk_${uuidv4().replace(/-/g, '')}`;
-
-    await query(`
-      INSERT INTO live_sessions
-        (id, course_id, instructor_id, title, description, scheduled_at,
-         duration_min, livekit_room_id, rtmp_key, max_participants,
-         is_recorded, is_public, price)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      sessionId, courseId || null, req.user.userId, title, description,
-      new Date(scheduledAt), durationMin, livekitRoomId, rtmpKey,
-      maxParticipants, isRecorded ? 1 : 0, isPublic ? 1 : 0, price
-    ]);
-
-    // Queue reminders (in production, use Bull/BullMQ)
-    scheduleReminders(sessionId, title, new Date(scheduledAt));
-
-    res.status(201).json({
-      success: true,
-      data: { sessionId, livekitRoomId, rtmpKey },
-    });
   } catch (err) {
     next(err);
   }
@@ -317,18 +277,6 @@ exports.endSession = async (req, res, next) => {
 };
 
 // ── List sessions ──────────────────────────────────────────
-// Replace the existing `exports.listSessions` function in
-// backend/src/controllers/liveController.js with this version.
-// Same fix: limit/offset coerced to real integers via parseInt().
-
-// Replace ONLY the exports.listSessions function inside
-// backend/src/controllers/liveController.js with this version.
-//
-// The previous edit accidentally pasted courseController's SQL into this
-// function (querying `courses`/`schools` and referencing an undefined
-// `whereSQL`/`orderBy`/`params`, then returning an undefined `sessions`
-// variable). This version restores the correct live_sessions query with
-// the LIMIT/OFFSET interpolation fix applied.
 
 exports.listSessions = async (req, res, next) => {
   try {
@@ -345,6 +293,7 @@ exports.listSessions = async (req, res, next) => {
       SELECT ls.id, ls.title, ls.description, ls.scheduled_at,
              ls.duration_min, ls.status, ls.is_recorded, ls.is_public,
              ls.max_participants, ls.current_participants, ls.price, ls.recording_url,
+             ls.meeting_code, ls.passcode,
              u.id AS instructor_id, u.first_name, u.last_name, u.avatar_url,
              c.title AS course_title, c.slug AS course_slug
       FROM live_sessions ls
@@ -364,9 +313,6 @@ exports.listSessions = async (req, res, next) => {
     next(err);
   }
 };
-
-
-
 
 // ── Update participant count from Livekit webhook ──────────
 

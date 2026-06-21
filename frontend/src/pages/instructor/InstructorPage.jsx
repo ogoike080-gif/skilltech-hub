@@ -1,28 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  BookOpen,
-  Video,
-  Users,
-  DollarSign,
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  Play,
-  Calendar,
-  Clock,
-  CheckCircle,
-  XCircle,
-  BarChart2,
-  Upload,
-  Zap,
-  Radio
+  BookOpen, Video, Users, DollarSign, Plus, Eye,
+  Edit, Trash2, Play, Calendar, Clock, CheckCircle,
+  XCircle, BarChart2, Upload, Zap, Radio
 } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
-
-
 
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }) {
@@ -243,8 +228,6 @@ function CreateCourseModal({ onClose, onCreated }) {
   );
 }
 
-
-
 // ── Main Instructor Page ──────────────────────────────────
 const TABS = [
   { id: 'overview', icon: BarChart2, label: 'Overview'   },
@@ -263,12 +246,17 @@ export default function InstructorPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [cRes, sRes] = await Promise.all([
+      // Fetch BOTH scheduled and live sessions, otherwise a session
+      // disappears from this page the moment it goes live (since it no
+      // longer matches status=scheduled).
+      const [cRes, scheduledRes, liveRes] = await Promise.all([
         api.get('/courses/instructor'),
         api.get('/live?status=scheduled&limit=20'),
+        api.get('/live?status=live&limit=20'),
       ]);
       setCourses(cRes.data.data || []);
-      setSessions(sRes.data.data || []);
+      const merged = [...(liveRes.data.data || []), ...(scheduledRes.data.data || [])];
+      setSessions(merged);
     } catch {}
     setLoading(false);
   };
@@ -439,59 +427,30 @@ export default function InstructorPage() {
         </div>
       )}
 
-           {/* Sessions tab */}
+      {/* Sessions tab */}
       {activeTab === 'sessions' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">
-              Live Sessions
-            </h2>
-
-            <button
-              onClick={() => setShowSchedule(true)}
-              className="btn-primary text-sm flex items-center gap-2"
-            >
-              <Radio size={15} />
-              Schedule Session
+            <h2 className="text-lg font-semibold text-white">Live Sessions</h2>
+            <button onClick={() => setShowSchedule(true)} className="btn-primary text-sm flex items-center gap-2">
+              <Radio size={15} /> Schedule Session
             </button>
           </div>
 
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="card h-24 animate-pulse bg-white/5"
-                />
-              ))}
-            </div>
+            <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="card h-24 animate-pulse bg-white/5" />)}</div>
           ) : sessions.length === 0 ? (
             <div className="card text-center py-16">
-              <Video
-                size={40}
-                className="text-white/10 mx-auto mb-3"
-              />
-
-              <p className="text-white/40 mb-4">
-                No live sessions scheduled
-              </p>
-
-              <button
-                onClick={() => setShowSchedule(true)}
-                className="btn-primary flex items-center gap-2 mx-auto"
-              >
-                <Radio size={16} />
-                Schedule Your First Class
+              <Video size={40} className="text-white/10 mx-auto mb-3" />
+              <p className="text-white/40 mb-4">No live sessions scheduled</p>
+              <button onClick={() => setShowSchedule(true)} className="btn-primary flex items-center gap-2 mx-auto">
+                <Radio size={16} /> Schedule Your First Class
               </button>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
-              {sessions.map((s) => (
-                <HostClassCard
-                  key={s.id}
-                  session={s}
-                  onStarted={fetchData}
-                />
+              {sessions.map(s => (
+                <HostClassCard key={s.id} session={s} onStarted={fetchData} />
               ))}
             </div>
           )}
