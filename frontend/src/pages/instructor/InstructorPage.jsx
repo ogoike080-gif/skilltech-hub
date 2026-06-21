@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  BookOpen, Video, Users, DollarSign, Plus, Eye,
-  Edit, Trash2, Play, Calendar, Clock, CheckCircle,
-  XCircle, BarChart2, Upload, Zap, Radio
+  BookOpen,
+  Video,
+  Users,
+  DollarSign,
+  Plus,
+  BarChart2,
+  Zap,
+  Radio
 } from 'lucide-react';
+
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
 
-<HostClassCard session={session} />
+
 
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }) {
@@ -230,6 +235,8 @@ function CreateCourseModal({ onClose, onCreated }) {
   );
 }
 
+
+
 // ── Main Instructor Page ──────────────────────────────────
 const TABS = [
   { id: 'overview', icon: BarChart2, label: 'Overview'   },
@@ -424,73 +431,59 @@ export default function InstructorPage() {
         </div>
       )}
 
-      {/* Sessions tab */}
+           {/* Sessions tab */}
       {activeTab === 'sessions' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-white">Live Sessions</h2>
-            <button onClick={() => setShowSchedule(true)} className="btn-primary text-sm flex items-center gap-2">
-              <Radio size={15} /> Schedule Session
+            <h2 className="text-lg font-semibold text-white">
+              Live Sessions
+            </h2>
+
+            <button
+              onClick={() => setShowSchedule(true)}
+              className="btn-primary text-sm flex items-center gap-2"
+            >
+              <Radio size={15} />
+              Schedule Session
             </button>
           </div>
 
           {loading ? (
-            <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="card h-24 animate-pulse bg-white/5" />)}</div>
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="card h-24 animate-pulse bg-white/5"
+                />
+              ))}
+            </div>
           ) : sessions.length === 0 ? (
             <div className="card text-center py-16">
-              <Video size={40} className="text-white/10 mx-auto mb-3" />
-              <p className="text-white/40 mb-4">No live sessions scheduled</p>
-              <button onClick={() => setShowSchedule(true)} className="btn-primary flex items-center gap-2 mx-auto">
-                <Radio size={16} /> Schedule Your First Class
+              <Video
+                size={40}
+                className="text-white/10 mx-auto mb-3"
+              />
+
+              <p className="text-white/40 mb-4">
+                No live sessions scheduled
+              </p>
+
+              <button
+                onClick={() => setShowSchedule(true)}
+                className="btn-primary flex items-center gap-2 mx-auto"
+              >
+                <Radio size={16} />
+                Schedule Your First Class
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {sessions.map(s => (
-                <div key={s.id} className={`card flex items-center gap-4 ${s.status === 'live' ? 'border-red-500/40' : ''}`}>
-                  <div className={`p-3 rounded-xl flex-shrink-0 ${s.status === 'live' ? 'bg-red-500/10' : 'bg-brand-500/10'}`}>
-                    <Video size={20} className={s.status === 'live' ? 'text-red-400' : 'text-brand-400'} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-white truncate">{s.title}</h3>
-                      {s.status === 'live' && (
-                        <span className="flex items-center gap-1 badge bg-red-500/20 text-red-400 text-xs">
-                          <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />LIVE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 text-white/40 text-xs">
-                      <span className="flex items-center gap-1"><Calendar size={11} />{new Date(s.scheduled_at).toLocaleString([], { dateStyle:'short', timeStyle:'short' })}</span>
-                      <span className="flex items-center gap-1"><Clock size={11} />{s.duration_min}m</span>
-                      <span className="flex items-center gap-1"><Users size={11} />{s.current_participants} joined</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    {s.status === 'scheduled' && (
-                      <button onClick={() => startSession(s.id)}
-                        className="flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
-                        <Play size={13} fill="white" /> Go Live
-                      </button>
-                    )}
-                    {s.status === 'live' && (
-                      <>
-                        <Link to={`/classroom/${s.id}`}
-                          className="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
-                          <Eye size={13} /> Enter
-                        </Link>
-                        <Link to={`/stream/${s.id}`}
-                          className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
-                          <Radio size={13} /> Stream
-                        </Link>
-                        <button onClick={() => endSession(s.id)}
-                          className="flex items-center gap-1.5 bg-surface-100 hover:bg-red-500/20 text-white/60 hover:text-red-400 text-xs font-semibold px-3 py-2 rounded-xl border border-white/10 transition-colors">
-                          <XCircle size={13} /> End
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {sessions.map((s) => (
+                <HostClassCard
+                  key={s.id}
+                  session={s}
+                  onStarted={fetchData}
+                />
               ))}
             </div>
           )}
