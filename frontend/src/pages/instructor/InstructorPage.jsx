@@ -5,11 +5,19 @@ import {
   Users,
   DollarSign,
   Plus,
+  Eye,
+  Edit,
+  Trash2,
+  Play,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
   BarChart2,
+  Upload,
   Zap,
   Radio
 } from 'lucide-react';
-
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
