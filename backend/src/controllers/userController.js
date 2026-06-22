@@ -1,6 +1,10 @@
 // ============================================================
 // userController.js
 // ============================================================
+// ============================================================
+// userController.js
+// ============================================================
+
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
 const { uploadImage } = require('../services/cloudinary');
@@ -41,7 +45,7 @@ const userController = {
         success: true,
         data: videos,
       });
-
+6
     } catch (err) {
       next(err);
     }
