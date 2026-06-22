@@ -229,19 +229,58 @@ exports.platformStats = async (req, res, next) => {
 exports.listUsers = async (req, res, next) => {
   try {
     const { role, search } = req.query;
-    const page = parseInt(req.query.page,10)||1;
-    const limit = parseInt(req.query.limit,10)||20;
-    const offset=(page-1)*limit;
-    const where = []; const params = [];
-    if (role)   { where.push('role = ?'); params.push(role); }
-    if (search) { where.push('(email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)'); const s = `%${search}%`; params.push(s, s, s); }
-    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = (page - 1) * limit;
+
+    const where = [];
+    const params = [];
+
+    if (role) {
+      where.push('role = ?');
+      params.push(role);
+    }
+
+    if (search) {
+      where.push('(email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)');
+      const s = `%${search}%`;
+      params.push(s, s, s);
+    }
+
+    const whereClause = where.length
+      ? `WHERE ${where.join(' AND ')}`
+      : '';
+
+    params.push(limit, offset);
+
     const users = await query(
-      `SELECT id, email, first_name, last_name, role, is_active, is_verified, subscription_tier, created_at FROM users ${whereClause} ORDER BY created_at DESC LIMIT %d OFFSET %d` % (limit, offset),
+      `
+      SELECT
+        id,
+        email,
+        first_name,
+        last_name,
+        role,
+        is_active,
+        is_verified,
+        subscription_tier,
+        created_at
+      FROM users
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+      `,
       params
     );
-    res.json({ success: true, data: users });
-  } catch (err) { next(err); }
+
+    res.json({
+      success: true,
+      data: users,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.updateUserRole = async (req, res, next) => {
