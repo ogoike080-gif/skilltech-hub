@@ -205,9 +205,8 @@ const userController = {
         user.password_hash
       );
 
-      if (!valid) {
+      if (!valid)
         throw new AppError('Current password is incorrect', 400);
-      }
 
       const hash = await bcrypt.hash(newPassword, 12);
 
@@ -228,9 +227,8 @@ const userController = {
 
   uploadAvatar: async (req, res, next) => {
     try {
-      if (!req.file) {
+      if (!req.file)
         throw new AppError('No file uploaded', 400);
-      }
 
       const url = await uploadImage(
         req.file.buffer,
@@ -244,9 +242,7 @@ const userController = {
 
       res.json({
         success: true,
-        data: {
-          avatarUrl: url,
-        },
+        data: { avatarUrl: url },
       });
 
     } catch (err) {
@@ -306,9 +302,8 @@ const userController = {
         [req.params.userId]
       );
 
-      if (!user) {
+      if (!user)
         throw new AppError('User not found', 404);
-      }
 
       const certs = await query(
         `SELECT
@@ -318,7 +313,8 @@ const userController = {
          FROM certificates c
          JOIN courses co ON co.id=c.course_id
          JOIN schools s ON s.id=co.school_id
-         WHERE c.user_id=?`,
+         WHERE c.user_id=?
+         AND c.is_valid=TRUE`,
         [user.id]
       );
 
@@ -336,7 +332,6 @@ const userController = {
   },
 };
 
-// Helper
 async function calculateStreak(userId) {
   const rows = await query(
     `SELECT DISTINCT DATE(completed_at) AS d
@@ -351,6 +346,7 @@ async function calculateStreak(userId) {
   if (!rows.length) return 0;
 
   let streak = 0;
+
   let expected = new Date();
   expected.setHours(0, 0, 0, 0);
 
