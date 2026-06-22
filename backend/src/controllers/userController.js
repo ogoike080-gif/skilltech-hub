@@ -1,9 +1,6 @@
 // ============================================================
 // userController.js
 // ============================================================
-// ============================================================
-// userController.js
-// ============================================================
 
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
@@ -41,18 +38,18 @@ const userController = {
         [user.preferred_school_id]
       );
 
-      res.json({
+      return res.json({
         success: true,
         data: videos,
       });
-6
+
     } catch (err) {
       next(err);
     }
   },
 
   dashboard: async (req, res, next) => {
-        try {
+    try {
       const userId = req.user.userId;
 
       const [user] = await query(
@@ -144,6 +141,7 @@ const userController = {
           recentCerts,
         },
       });
+
     } catch (err) {
       next(err);
     }
@@ -187,6 +185,7 @@ const userController = {
         success: true,
         message: 'Profile updated',
       });
+
     } catch (err) {
       next(err);
     }
@@ -206,8 +205,9 @@ const userController = {
         user.password_hash
       );
 
-      if (!valid)
+      if (!valid) {
         throw new AppError('Current password is incorrect', 400);
+      }
 
       const hash = await bcrypt.hash(newPassword, 12);
 
@@ -220,6 +220,7 @@ const userController = {
         success: true,
         message: 'Password changed',
       });
+
     } catch (err) {
       next(err);
     }
@@ -227,8 +228,9 @@ const userController = {
 
   uploadAvatar: async (req, res, next) => {
     try {
-      if (!req.file)
+      if (!req.file) {
         throw new AppError('No file uploaded', 400);
+      }
 
       const url = await uploadImage(
         req.file.buffer,
@@ -246,6 +248,7 @@ const userController = {
           avatarUrl: url,
         },
       });
+
     } catch (err) {
       next(err);
     }
@@ -277,6 +280,7 @@ const userController = {
         success: true,
         data: leaders,
       });
+
     } catch (err) {
       next(err);
     }
@@ -302,8 +306,9 @@ const userController = {
         [req.params.userId]
       );
 
-      if (!user)
+      if (!user) {
         throw new AppError('User not found', 404);
+      }
 
       const certs = await query(
         `SELECT
@@ -311,12 +316,9 @@ const userController = {
             s.name AS school_name,
             c.issued_at
          FROM certificates c
-         JOIN courses co
-           ON co.id=c.course_id
-         JOIN schools s
-           ON s.id=co.school_id
-         WHERE c.user_id=?
-         AND c.is_valid=TRUE`,
+         JOIN courses co ON co.id=c.course_id
+         JOIN schools s ON s.id=co.school_id
+         WHERE c.user_id=?`,
         [user.id]
       );
 
@@ -327,12 +329,14 @@ const userController = {
           certificates: certs,
         },
       });
+
     } catch (err) {
       next(err);
     }
   },
 };
 
+// Helper
 async function calculateStreak(userId) {
   const rows = await query(
     `SELECT DISTINCT DATE(completed_at) AS d
@@ -347,7 +351,6 @@ async function calculateStreak(userId) {
   if (!rows.length) return 0;
 
   let streak = 0;
-
   let expected = new Date();
   expected.setHours(0, 0, 0, 0);
 
