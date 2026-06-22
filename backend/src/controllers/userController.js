@@ -1,16 +1,13 @@
 // ============================================================
 // userController.js
 // ============================================================
-
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { uploadImage } = require('../services/cloudinary');
 const { AppError } = require('../utils/errors');
 
-// ── Get motivational videos matching the student's chosen skill ────
-// Mount as: GET /api/users/motivation
 const userController = {
+
   getMotivationVideos: async (req, res, next) => {
     try {
       const [user] = await query(
@@ -18,7 +15,7 @@ const userController = {
         [req.user.userId]
       );
 
-      if (!user?.preferred_school_id) {
+      if (!user || !user.preferred_school_id) {
         return res.json({
           success: true,
           data: [],
@@ -26,10 +23,15 @@ const userController = {
       }
 
       const videos = await query(
-        `SELECT id, title, video_url, thumbnail_url, source
+        `SELECT
+            id,
+            title,
+            video_url,
+            thumbnail_url,
+            source
          FROM motivational_videos
          WHERE school_id = ?
-           AND is_active = 1
+         AND is_active = 1
          ORDER BY created_at DESC
          LIMIT 10`,
         [user.preferred_school_id]
@@ -39,14 +41,14 @@ const userController = {
         success: true,
         data: videos,
       });
+
     } catch (err) {
       next(err);
     }
   },
 
-const userController = {
   dashboard: async (req, res, next) => {
-    try {
+        try {
       const userId = req.user.userId;
 
       const [user] = await query(
