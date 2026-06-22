@@ -4,6 +4,16 @@ const router = express.Router();
 const { protect, requireRole } = require('../middleware/auth');
 const adminController = require('../controllers/adminController');
 
+
+router.post('/schools',                  ctrl.createSchool);
+router.post('/jobs',                     ctrl.createJob);
+router.delete('/jobs/:id',               ctrl.deleteJob);
+router.post('/certificates',             ctrl.issueCertificate);
+router.get('/students',                  ctrl.listStudentsSimple);
+router.post('/videos',                   ctrl.addMotivationalVideo);
+router.get('/videos',                    ctrl.listMotivationalVideos);
+router.delete('/videos/:id',             ctrl.deleteMotivationalVideo);
+
 // Protect all admin routes
 router.use(protect, requireRole('admin'));
 

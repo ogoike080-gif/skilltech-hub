@@ -13,4 +13,11 @@ router.post('/avatar',        protect, upload.single('avatar'), ctrl.uploadAvata
 router.get('/leaderboard',    ctrl.leaderboard);
 router.get('/:userId/public', ctrl.publicProfile);
 
+
+
+
+router.get('/motivation', protect, ctrl.getMotivationVideos);
+
+
+
 module.exports = router;

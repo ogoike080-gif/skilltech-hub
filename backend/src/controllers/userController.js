@@ -1,6 +1,38 @@
 // ============================================================
 // userController.js
 // ============================================================
+const { query } = require('../config/database'); // (should already be imported)
+
+// ── Get motivational videos matching the student's chosen skill ────
+// Mount as: GET /api/users/motivation
+exports.getMotivationVideos = async (req, res, next) => {
+  try {
+    const [user] = await query(
+      'SELECT preferred_school_id FROM users WHERE id = ?',
+      [req.user.userId]
+    );
+
+    if (!user?.preferred_school_id) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const videos = await query(
+      `SELECT id, title, video_url, thumbnail_url, source
+       FROM motivational_videos
+       WHERE school_id = ? AND is_active = 1
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [user.preferred_school_id]
+    );
+
+    res.json({ success: true, data: videos });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');

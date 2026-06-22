@@ -39,7 +39,7 @@ async function saveRefreshToken(userId, token) {
 
 exports.register = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName } = req.body;
+    const { firstName, lastName, email, password, role, preferredSchoolId } = req.body;
 
     // Check existing
     const [existing] = await query('SELECT id FROM users WHERE email = ?', [email]);
@@ -51,11 +51,10 @@ exports.register = async (req, res, next) => {
     const verifyToken = uuidv4();
 
     await query(
-      `INSERT INTO users (id, email, password_hash, first_name, last_name, verify_token, oauth_provider)
-       VALUES (?, ?, ?, ?, ?, ?, 'local')`,
-      [userId, email.toLowerCase(), passwordHash, firstName, lastName, verifyToken]
-    );
-
+    `INSERT INTO users (id, email, password_hash, first_name, last_name, role, preferred_school_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, email, hashedPassword, firstName, lastName, role || 'student', preferredSchoolId || null]
+  );
     // Award first-step badge check later — queue it
     await sendWelcomeEmail({ email, firstName, verifyToken }).catch(err =>
       logger.warn('Welcome email failed:', err.message)
