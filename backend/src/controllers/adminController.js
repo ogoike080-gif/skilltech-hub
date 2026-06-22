@@ -228,15 +228,17 @@ exports.platformStats = async (req, res, next) => {
 
 exports.listUsers = async (req, res, next) => {
   try {
-    const { role, search, page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { role, search } = req.query;
+    const page = parseInt(req.query.page,10)||1;
+    const limit = parseInt(req.query.limit,10)||20;
+    const offset=(page-1)*limit;
     const where = []; const params = [];
     if (role)   { where.push('role = ?'); params.push(role); }
     if (search) { where.push('(email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)'); const s = `%${search}%`; params.push(s, s, s); }
     const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const users = await query(
-      `SELECT id, email, first_name, last_name, role, is_active, is_verified, subscription_tier, created_at FROM users ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, parseInt(limit), offset]
+      `SELECT id, email, first_name, last_name, role, is_active, is_verified, subscription_tier, created_at FROM users ${whereClause} ORDER BY created_at DESC LIMIT %d OFFSET %d` % (limit, offset),
+      params
     );
     res.json({ success: true, data: users });
   } catch (err) { next(err); }
