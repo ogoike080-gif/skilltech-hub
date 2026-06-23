@@ -228,11 +228,11 @@ exports.platformStats = async (req, res, next) => {
 
 exports.listUsers = async (req, res, next) => {
   try {
-    const { role, search } = req.query;
+const { role, search, page = 1 } = req.query;
 
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
-    const offset = (page - 1) * limit;
+const safeLimit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 20));
+const safePage = Math.max(1, parseInt(page, 10) || 1);
+const offset = (safePage - 1) * safeLimit;
 
     const where = [];
     const params = [];
@@ -243,7 +243,10 @@ exports.listUsers = async (req, res, next) => {
     }
 
     if (search) {
-      where.push('(email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)');
+      where.push(
+        '(email LIKE ? OR first_name LIKE ? OR last_name LIKE ?)'
+      );
+
       const s = `%${search}%`;
       params.push(s, s, s);
     }
@@ -252,31 +255,25 @@ exports.listUsers = async (req, res, next) => {
       ? `WHERE ${where.join(' AND ')}`
       : '';
 
-    params.push(limit, offset);
-
     const users = await query(
-      `
-      SELECT
-        id,
-        email,
-        first_name,
-        last_name,
-        role,
-        is_active,
-        is_verified,
-        subscription_tier,
-        created_at
-      FROM users
-      ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-      `,
+      `SELECT id,
+              email,
+              first_name,
+              last_name,
+              role,
+              is_active,
+              is_verified,
+              subscription_tier,
+              created_at
+       FROM users ${whereClause}
+       ORDER BY created_at DESC
+       LIMIT ${safeLimit} OFFSET ${offset}`,
       params
     );
 
     res.json({
       success: true,
-      data: users,
+      data: users
     });
   } catch (err) {
     next(err);
