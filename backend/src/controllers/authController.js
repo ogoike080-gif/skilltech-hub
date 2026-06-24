@@ -43,6 +43,8 @@ async function saveRefreshToken(userId, token) {
 
 // ── Register ───────────────────────────────────────────────
 
+// FIXED REGISTER FUNCTION FOR authController.js
+
 exports.register = async (req, res, next) => {
   try {
     let {
@@ -73,23 +75,22 @@ exports.register = async (req, res, next) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-
     const userId = uuidv4();
     const verifyToken = uuidv4();
 
     await query(
       `INSERT INTO users (
-          id,
-          email,
-          password_hash,
-          first_name,
-          last_name,
-          role,
-          preferred_school_id,
-          verify_token,
-          oauth_provider,
-          is_active,
-          is_verified
+        id,
+        email,
+        password_hash,
+        first_name,
+        last_name,
+        role,
+        preferred_school_id,
+        verify_token,
+        oauth_provider,
+        is_active,
+        is_verified
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE)`,
       [
@@ -101,15 +102,15 @@ exports.register = async (req, res, next) => {
         role || 'student',
         preferredSchoolId || null,
         verifyToken,
-        'local',
+        'local'
       ]
     );
 
     sendWelcomeEmail({
       email,
       firstName,
-      verifyToken,
-    }).catch((err) => {
+      verifyToken
+    }).catch(err => {
       logger.warn('Welcome email failed:', err.message);
     });
 
@@ -123,15 +124,14 @@ exports.register = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Registration successful',
-      data: {
-        accessToken,
-        refreshToken,
-      },
+      data: { accessToken, refreshToken }
     });
+
   } catch (err) {
     next(err);
   }
 };
+
 
 // ── Login ──────────────────────────────────────────────────
 
