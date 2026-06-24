@@ -1,29 +1,77 @@
-const { v4: uuidv4 } = require('uuid');
-const { query } = require('../config/database');
-const { AppError } = require('../utils/errors');
-
 exports.listMentors = async (req, res, next) => {
   try {
-    const { specialty, minRate, maxRate, page = 1, limit = 12 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    const where = ['mp.is_approved = TRUE', 'mp.is_available = TRUE'];
+    const {
+      specialty,
+      minRate,
+      maxRate,
+      page = 1,
+      limit = 12
+    } = req.query;
+
+    // Convert to numbers
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 12);
+    const offset = (pageNum - 1) * limitNum;
+
+    const where = [
+      'mp.is_approved = TRUE',
+      'mp.is_available = TRUE'
+    ];
+
     const params = [];
 
-    if (minRate) { where.push('mp.hourly_rate >= ?'); params.push(minRate); }
-    if (maxRate) { where.push('mp.hourly_rate <= ?'); params.push(maxRate); }
-    if (specialty) { where.push('JSON_CONTAINS(mp.specialties, ?)'); params.push(JSON.stringify(specialty)); }
+    if (minRate) {
+      where.push('mp.hourly_rate >= ?');
+      params.push(Number(minRate));
+    }
 
-    const mentors = await query(`
-      SELECT mp.id, mp.hourly_rate, mp.currency, mp.specialties, mp.experience_yrs,
-             mp.avg_rating, mp.total_sessions, mp.bio,
-             u.id AS user_id, u.first_name, u.last_name, u.avatar_url, u.headline
-      FROM mentor_profiles mp JOIN users u ON u.id = mp.user_id
+    if (maxRate) {
+      where.push('mp.hourly_rate <= ?');
+      params.push(Number(maxRate));
+    }
+
+    if (specialty) {
+      where.push('JSON_CONTAINS(mp.specialties, ?)');
+      params.push(JSON.stringify(specialty));
+    }
+
+    const sql = `
+      SELECT
+        mp.id,
+        mp.hourly_rate,
+        mp.currency,
+        mp.specialties,
+        mp.experience_yrs,
+        mp.avg_rating,
+        mp.total_sessions,
+        mp.bio,
+        u.id AS user_id,
+        u.first_name,
+        u.last_name,
+        u.avatar_url,
+        u.headline
+      FROM mentor_profiles mp
+      JOIN users u ON u.id = mp.user_id
       WHERE ${where.join(' AND ')}
-      ORDER BY mp.avg_rating DESC, mp.total_sessions DESC
-      LIMIT ? OFFSET ?
-    `, [...params, parseInt(limit), offset]);
-    res.json({ success: true, data: mentors });
-  } catch (err) { next(err); }
+      ORDER BY mp.avg_rating DESC,
+               mp.total_sessions DESC
+      LIMIT ${limitNum} OFFSET ${offset}
+    `;
+
+    const mentors = await query(sql, params);
+
+    res.json({
+      success: true,
+      data: mentors,
+      pagination: {
+        page: pageNum,
+        limit: limitNum
+      }
+    });
+
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.getMentor = async (req, res, next) => {
