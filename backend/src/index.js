@@ -1,3 +1,8 @@
+const path = require('path');
+
+require('dotenv').config({
+  path: path.resolve(__dirname, '../../.env')
+});
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -6,7 +11,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 const passport = require('passport');
-require('dotenv').config();
+
 
 const { connectDB } = require('./config/database');
 const { connectRedis } = require('./config/redis');
