@@ -11,12 +11,16 @@ export default function OAuthCallbackPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const accessToken =
-      searchParams.get('access') ||
-      searchParams.get('token') ||
-      searchParams.get('accessToken');
+   const accessToken =
+  searchParams.get('access') ||
+  searchParams.get('token') ||
+  searchParams.get('accessToken');
 
-   console.log('OAuth access:', accessToken);
+const refreshToken =
+  searchParams.get('refresh') ||
+  searchParams.get('refreshToken');
+
+console.log('OAuth access:', accessToken);
 console.log('OAuth refresh:', refreshToken);
 
     if (!accessToken) {
