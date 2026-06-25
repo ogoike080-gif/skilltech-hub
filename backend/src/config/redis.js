@@ -20,9 +20,33 @@ const fallback = {
     return [...memCache.keys()].filter(k => re.test(k));
   },
   incr:  async (key) => { const v = parseInt(memCache.get(key) || '0') + 1; memCache.set(key, String(v)); return v; },
-  sAdd:  async (key, val) => { const s = memCache.get(key) || new Set(); s.add(val); memCache.set(key, s); },
-  sRem:  async (key, val) => { const s = memCache.get(key); if (s) s.delete(val); },
-  sCard: async (key) => { const s = memCache.get(key); return s ? s.size : 0; },
+ sAdd: async (key, val) => {
+  let s = memCache.get(key);
+
+  // Ensure the stored value is always a Set
+  if (!(s instanceof Set)) {
+    s = new Set();
+  }
+
+  s.add(String(val));
+  memCache.set(key, s);
+
+  return s.size;
+},
+
+sRem: async (key, val) => {
+  const s = memCache.get(key);
+
+  if (s instanceof Set) {
+    s.delete(String(val));
+  }
+},
+
+sCard: async (key) => {
+  const s = memCache.get(key);
+
+  return s instanceof Set ? s.size : 0;
+},
   lPush: async (key, val) => { const a = memCache.get(key) || []; a.unshift(val); memCache.set(key, a); return a.length; },
   lTrim: async (key, s, e) => { const a = memCache.get(key) || []; memCache.set(key, a.slice(s, e + 1)); },
   on: () => {},

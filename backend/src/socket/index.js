@@ -58,10 +58,20 @@ function setupSocketHandlers(io) {
         socket.sessionId = sessionId;
         socket.isInstructor = session.instructor_id === userId;
 
+
+
+
         // Track participant
-        const redis = getRedis();
-        await redis.sAdd(`session:${sessionId}:participants`, userId);
-        const count = await redis.sCard(`session:${sessionId}:participants`);
+const redis = getRedis();
+
+await redis.sAdd(
+  `session:${sessionId}:participants`,
+  String(userId)
+);
+
+const count = await redis.sCard(
+  `session:${sessionId}:participants`
+);
 
         // Broadcast updated count
         io.to(`session:${sessionId}`).emit('session:participants', { count });
