@@ -10,49 +10,60 @@ const authSlice = createSlice({
     loading: false,
     error: null,
   },
+
   reducers: {
     setCredentials(state, { payload }) {
-      state.user  = payload.user;
+      state.user = payload.user;
       state.token = payload.accessToken;
-      localStorage.setItem('sth_token', payload.accessToken);
-      setCredentials(state, { payload }) 
-  state.user = payload.user;
-  state.token = payload.accessToken;
 
-  localStorage.setItem(
-    'sth_token',
-    payload.accessToken
-  );
+      localStorage.setItem(
+        'sth_token',
+        payload.accessToken
+      );
 
-  if (payload.refreshToken) {
-  localStorage.setItem(
-    'sth_refresh',
-    payload.refreshToken
-  );
-  }
+      if (payload.refreshToken) {
+        localStorage.setItem(
+          'sth_refresh',
+          payload.refreshToken
+        );
+      }
 
-  localStorage.setItem(
-    'sth_user',
-    JSON.stringify(payload.user)
-  );
-
-      localStorage.setItem('sth_user', JSON.stringify(payload.user));
+      localStorage.setItem(
+        'sth_user',
+        JSON.stringify(payload.user)
+      );
     },
+
     updateUser(state, { payload }) {
-      state.user = { ...state.user, ...payload };
-      localStorage.setItem('sth_user', JSON.stringify(state.user));
+      state.user = {
+        ...state.user,
+        ...payload,
+      };
+
+      localStorage.setItem(
+        'sth_user',
+        JSON.stringify(state.user)
+      );
     },
+
     logout(state) {
-      state.user = null; state.token = null;
+      state.user = null;
+      state.token = null;
+
       localStorage.removeItem('sth_token');
       localStorage.removeItem('sth_refresh');
       localStorage.removeItem('sth_user');
     },
-    setLoading(state, { payload }) { state.loading = payload; },
-    setError(state, { payload })   { state.error = payload; },
+
+    setLoading(state, { payload }) {
+      state.loading = payload;
+    },
+
+    setError(state, { payload }) {
+      state.error = payload;
+    },
   },
 });
-
 // ── Courses Slice ──────────────────────────────────────────
 const coursesSlice = createSlice({
   name: 'courses',
