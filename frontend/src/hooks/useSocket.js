@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
 
 let socketInstance = null;
 
@@ -42,6 +43,17 @@ export function useSocket() {
 
       socketInstance.on('connect_error', (err) => {
         console.error('❌ Socket error:', err.message);
+      });
+
+      // 🔔 Notify instructor when a student joins a live class
+      socketInstance.on('live:student-joined', (data) => {
+        toast.success(
+          `${data.studentName} joined "${data.sessionTitle}"`,
+          {
+            duration: 6000,
+            icon: '🎓',
+          }
+        );
       });
     }
 
