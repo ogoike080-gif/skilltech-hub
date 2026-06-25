@@ -10,7 +10,9 @@ export default function DiagnosticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://skilltech-hub-production.up.railway.app';
+ const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'https://skilltech-hub-production.up.railway.app';
 
   const fetchDiagnostics = () => {
     setLoading(true);
