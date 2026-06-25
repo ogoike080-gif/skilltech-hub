@@ -15,7 +15,27 @@ const authSlice = createSlice({
       state.user  = payload.user;
       state.token = payload.accessToken;
       localStorage.setItem('sth_token', payload.accessToken);
-      localStorage.setItem('sth_refresh', payload.refreshToken || '');
+      setCredentials(state, { payload }) 
+  state.user = payload.user;
+  state.token = payload.accessToken;
+
+  localStorage.setItem(
+    'sth_token',
+    payload.accessToken
+  );
+
+  if (payload.refreshToken) {
+  localStorage.setItem(
+    'sth_refresh',
+    payload.refreshToken
+  );
+  }
+
+  localStorage.setItem(
+    'sth_user',
+    JSON.stringify(payload.user)
+  );
+
       localStorage.setItem('sth_user', JSON.stringify(payload.user));
     },
     updateUser(state, { payload }) {

@@ -35,8 +35,17 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest?._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = localStorage.getItem('sth_refresh');
-        if (!refreshToken) throw new Error('No refresh token found');
+        const refreshToken =
+  localStorage.getItem('sth_refresh');
+
+if (
+  !refreshToken ||
+  refreshToken === 'undefined' ||
+  refreshToken === 'null' ||
+  refreshToken === ''
+) {
+  throw new Error('No valid refresh token');
+}
         const response = await axios.post(`${API_URL}/api/auth/refresh`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = response.data.data;
         localStorage.setItem('sth_token', accessToken);
@@ -44,9 +53,11 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem('sth_token');
-        localStorage.removeItem('sth_refresh');
-        window.location.href = '/login';
+       localStorage.removeItem('sth_token');
+localStorage.removeItem('sth_refresh');
+localStorage.removeItem('sth_user');
+
+window.location.replace('/login');
         return Promise.reject(refreshError);
       }
     }

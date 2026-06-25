@@ -16,9 +16,8 @@ export default function OAuthCallbackPage() {
       searchParams.get('token') ||
       searchParams.get('accessToken');
 
-    const refreshToken =
-      searchParams.get('refresh') ||
-      searchParams.get('refreshToken');
+   console.log('OAuth access:', accessToken);
+console.log('OAuth refresh:', refreshToken);
 
     if (!accessToken) {
       setError('Authentication failed. No token received.');
