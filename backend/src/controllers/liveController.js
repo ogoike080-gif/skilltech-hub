@@ -183,6 +183,37 @@ exports.getJoinToken = async (req, res, next) => {
     const redis = getRedis();
     await redis.incr(`session:${sessionId}:participants`);
 
+
+     // ── Notify instructor: student joined ──────────────────
+    // Only fire when a non-instructor actually joins (not the host themself)
+    if (!isInstructor) {
+      // 1) Real-time popup via Socket.io, if instructor is currently online
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`user:${session.instructor_id}`).emit('live:student-joined', {
+          sessionId,
+          sessionTitle: session.title,
+          studentName: `${user.first_name} ${user.last_name}`,
+          studentAvatar: user.avatar_url,
+          joinedAt: new Date().toISOString(),
+        });
+      }
+
+      // 2) Persisted notification, shown even if instructor is offline right now
+      await query(
+        `INSERT INTO notifications (id, user_id, title, message, type, action_url)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          session.instructor_id,
+          'A student joined your live class',
+          `${user.first_name} ${user.last_name} just joined "${session.title}"`,
+          'info',
+          `/classroom/${sessionId}`,
+        ]
+      ).catch(() => {}); // don't crash the join flow if notifications insert fails
+    }
+
     res.json({
       success: true,
       data: {

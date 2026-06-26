@@ -14,9 +14,7 @@ export function useSocket() {
   useEffect(() => {
     if (!token) return;
 
-    // Don't recreate if already connected
-    if (socketInstance?.connected) return;
-
+    // Create socket only once
     if (!socketInstance) {
       socketInstance = io(SOCKET_URL, {
         auth: { token },
@@ -30,43 +28,59 @@ export function useSocket() {
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
+
         timeout: 20000,
       });
 
       socketInstance.on('connect', () => {
-        console.log('✅ Socket connected:', socketInstance.id);
+        console.log(
+          '✅ Socket connected:',
+          socketInstance.id
+        );
       });
 
       socketInstance.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
+        console.log(
+          '❌ Socket disconnected:',
+          reason
+        );
       });
 
       socketInstance.on('connect_error', (err) => {
-        console.error('❌ Socket error:', err.message);
-      });
-
-      // 🔔 Notify instructor when a student joins a live class
-      socketInstance.on('live:student-joined', (data) => {
-        toast.success(
-          `${data.studentName} joined "${data.sessionTitle}"`,
-          {
-            duration: 6000,
-            icon: '🎓',
-          }
+        console.error(
+          '❌ Socket error:',
+          err.message
         );
       });
+
+      // Student joined notification
+      socketInstance.on(
+        'live:student-joined',
+        (data) => {
+          toast.success(
+            `${data.studentName} joined "${data.sessionTitle}"`,
+            {
+              duration: 6000,
+              icon: '🎓',
+            }
+          );
+        }
+      );
     }
 
     return () => {
-      // Keep singleton alive between pages
-      // Do NOT disconnect here
+      // Keep singleton alive across pages.
+      // Do NOT disconnect here.
     };
   }, [token]);
 
   return socketInstance;
 }
 
-export function useSessionSocket(sessionId, handlers = {}) {
+export function useSessionSocket(
+  sessionId,
+  handlers = {}
+) {
   const socket = useSocket();
 
   const handlersRef = useRef(handlers);
@@ -76,7 +90,14 @@ export function useSessionSocket(sessionId, handlers = {}) {
   useEffect(() => {
     if (!socket || !sessionId) return;
 
-    socket.emit('session:join', { sessionId });
+    console.log(
+      '📡 Joining session:',
+      sessionId
+    );
+
+    socket.emit('session:join', {
+      sessionId,
+    });
 
     Object.entries(handlersRef.current).forEach(
       ([event, handler]) => {
@@ -85,7 +106,14 @@ export function useSessionSocket(sessionId, handlers = {}) {
     );
 
     return () => {
-      socket.emit('session:leave', { sessionId });
+      console.log(
+        '📴 Leaving session:',
+        sessionId
+      );
+
+      socket.emit('session:leave', {
+        sessionId,
+      });
 
       Object.entries(handlersRef.current).forEach(
         ([event, handler]) => {
@@ -98,6 +126,10 @@ export function useSessionSocket(sessionId, handlers = {}) {
   const emit = (event, data) => {
     if (socket?.connected) {
       socket.emit(event, data);
+    } else {
+      console.warn(
+        '⚠️ Socket not connected'
+      );
     }
   };
 
