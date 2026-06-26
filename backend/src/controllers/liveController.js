@@ -201,8 +201,9 @@ exports.getJoinToken = async (req, res, next) => {
 
       // 2) Persisted notification, shown even if instructor is offline right now
   
-        await query(
-  `INSERT INTO notifications (id, user_id, type, title, body, action_url)
+ await query(
+  `INSERT INTO notifications
+   (id, user_id, type, title, body, action_url)
    VALUES (?, ?, ?, ?, ?, ?)`,
   [
     uuidv4(),
@@ -212,10 +213,9 @@ exports.getJoinToken = async (req, res, next) => {
     `${user.first_name} ${user.last_name} just joined "${session.title}"`,
     `/classroom/${sessionId}`,
   ]
-).catch((err) => {
-    console.error('Notification insert failed:', err);
+).catch(err => {
+  logger.error('Notification insert failed:', err);
 });
-
 
 
       // don't crash the join flow if notifications insert fails
