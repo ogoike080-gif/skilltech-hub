@@ -1,7 +1,10 @@
 const express = require('express');
 const router  = express.Router();
+const multer  = require('multer');
 const { query } = require('../config/database');
-const { protect } = require('../middleware/auth');
+const { protect, requireApprovedInstructor } = require('../middleware/auth');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 router.get('/:lessonId', protect, async (req, res, next) => {
   try {
@@ -20,5 +23,17 @@ router.get('/:lessonId/progress', protect, async (req, res, next) => {
     res.json({ success: true, data: progress || null });
   } catch (err) { next(err); }
 });
+
+// NOTE: I did not find an existing material-upload route/controller
+// function in your codebase (only read-only GET /:lessonId existed).
+// This is a placeholder showing where the gate goes — wire it to
+// your actual upload controller function once you point me to it.
+//
+// router.post('/:lessonId/materials',
+//   protect,
+//   requireApprovedInstructor,
+//   upload.single('file'),
+//   ctrl.uploadMaterial
+// );
 
 module.exports = router;

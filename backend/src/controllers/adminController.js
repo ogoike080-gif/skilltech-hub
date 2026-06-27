@@ -351,3 +351,123 @@ exports.listSessions = async (req, res, next) => {
     res.json({ success: true, data: sessions });
   } catch (err) { next(err); }
 };
+
+exports.listPendingInstructors = async (req, res, next) => {
+  try {
+    const pending = await query(`
+      SELECT id, email, first_name, last_name, teacher_code, created_at
+      FROM users
+      WHERE role = 'instructor' AND instructor_status = 'pending'
+      ORDER BY created_at ASC
+    `);
+    res.json({ success: true, data: pending });
+  } catch (err) { next(err); }
+};
+
+exports.approveInstructor = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const [user] = await query(
+      `SELECT id, role, instructor_status FROM users WHERE id = ?`,
+      [id]
+    );
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role !== 'instructor') throw new AppError('User is not an instructor applicant', 400);
+
+    await query(
+      `UPDATE users SET instructor_status = 'approved' WHERE id = ?`,
+      [id]
+    );
+
+    // Best-effort notification — don't fail the approval if this errors
+    await query(
+      `INSERT INTO notifications (id, user_id, title, message, type)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        uuidv4(), id,
+        'Instructor application approved',
+        'You can now create courses, schedule live classes, and upload materials.',
+        'success',
+      ]
+    ).catch(() => {});
+
+    res.json({ success: true, message: 'Instructor approved' });
+  } catch (err) { next(err); }
+};
+
+exports.rejectInstructor = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const [user] = await query(
+      `SELECT id, role FROM users WHERE id = ?`,
+      [id]
+    );
+    if (!user) throw new AppError('User not found', 404);
+    if (user.role !== 'instructor') throw new AppError('User is not an instructor applicant', 400);
+
+    await query(
+      `UPDATE users SET instructor_status = 'rejected' WHERE id = ?`,
+      [id]
+    );
+
+    await query(
+      `INSERT INTO notifications (id, user_id, title, message, type)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        uuidv4(), id,
+        'Instructor application not approved',
+        reason || 'Your instructor application was not approved at this time.',
+        'warning',
+      ]
+    ).catch(() => {});
+
+    res.json({ success: true, message: 'Instructor rejected' });
+  } catch (err) { next(err); }
+};
+
+// ── Teacher invite codes management ──────────────────────────
+// Mount as:
+//   GET  /api/admin/teacher-codes
+//   POST /api/admin/teacher-codes
+
+exports.listTeacherCodes = async (req, res, next) => {
+  try {
+    const codes = await query(`
+      SELECT id, code, label, max_uses, used_count, is_active, expires_at, created_at
+      FROM teacher_codes
+      ORDER BY created_at DESC
+    `);
+    res.json({ success: true, data: codes });
+  } catch (err) { next(err); }
+};
+
+exports.createTeacherCode = async (req, res, next) => {
+  try {
+    const { code, label, maxUses, expiresAt } = req.body;
+    if (!code || !code.trim()) throw new AppError('Code is required', 400);
+
+    const id = uuidv4();
+    await query(
+      `INSERT INTO teacher_codes (id, code, label, max_uses, used_count, is_active, expires_at, created_by)
+       VALUES (?, ?, ?, ?, 0, 1, ?, ?)`,
+      [id, code.trim(), label || null, maxUses || 1, expiresAt || null, req.user.userId]
+    );
+
+    res.status(201).json({ success: true, data: { id, code: code.trim() } });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return next(new AppError('That code already exists', 409));
+    }
+    next(err);
+  }
+};
+
+exports.deactivateTeacherCode = async (req, res, next) => {
+  try {
+    await query('UPDATE teacher_codes SET is_active = 0 WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'Code deactivated' });
+  } catch (err) { next(err); }
+};

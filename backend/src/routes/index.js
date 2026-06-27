@@ -4,10 +4,14 @@
 const express = require('express');
 const router  = express.Router();
 const ctrl    = require('../controllers/liveController');
-const { protect, requireInstructor } = require('../middleware/auth');
+const { protect, requireInstructor, requireApprovedInstructor } = require('../middleware/auth');
+const liveController = require('../controllers/liveController');
+
+router.get('/lookup/:meetingCode', liveController.lookupByCode);
+router.post('/join', protect, liveController.joinByCode);
 
 router.get('/',                      protect, ctrl.listSessions);
-router.post('/',                     protect, requireInstructor, ctrl.schedule);
+router.post('/',                     protect, requireApprovedInstructor, ctrl.schedule);
 router.get('/:sessionId/token',      protect, ctrl.getJoinToken);
 router.post('/:sessionId/start',     protect, requireInstructor, ctrl.startSession);
 router.post('/:sessionId/end',       protect, requireInstructor, ctrl.endSession);
@@ -158,6 +162,13 @@ adminRouter.get('/courses',            adminCtrl.listCourses);
 adminRouter.put('/courses/:id/publish',adminCtrl.publishCourse);
 adminRouter.get('/payments',           adminCtrl.listPayments);
 adminRouter.get('/sessions',           adminCtrl.listSessions);
+
+adminRouter.get('/instructors/pending',        adminCtrl.listPendingInstructors);
+adminRouter.put('/instructors/:id/approve',    adminCtrl.approveInstructor);
+adminRouter.put('/instructors/:id/reject',     adminCtrl.rejectInstructor);
+adminRouter.get('/teacher-codes',              adminCtrl.listTeacherCodes);
+adminRouter.post('/teacher-codes',             adminCtrl.createTeacherCode);
+adminRouter.put('/teacher-codes/:id/deactivate', adminCtrl.deactivateTeacherCode);
 
 // ============================================================
 // routes/notifications.js

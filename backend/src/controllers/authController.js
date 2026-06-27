@@ -45,6 +45,8 @@ async function saveRefreshToken(userId, token) {
 
 // FIXED REGISTER FUNCTION FOR authController.js
 
+// ── Register ────────────────────────────────────────────────
+
 exports.register = async (req, res, next) => {
   try {
     let {
@@ -54,6 +56,7 @@ exports.register = async (req, res, next) => {
       password,
       role,
       preferredSchoolId,
+      teacherCode,
     } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
@@ -64,6 +67,14 @@ exports.register = async (req, res, next) => {
     }
 
     email = email.trim().toLowerCase();
+    role = role || 'student';
+
+    // Only 'student' and 'instructor' may be self-selected at signup.
+    // 'mentor' and 'admin' are assigned later by an admin, never via
+    // this public endpoint.
+    if (!['student', 'instructor'].includes(role)) {
+      throw new AppError('Invalid role', 400);
+    }
 
     const [existing] = await query(
       'SELECT id FROM users WHERE email = ?',
@@ -74,9 +85,45 @@ exports.register = async (req, res, next) => {
       throw new AppError('Email already registered', 409);
     }
 
+    // ── Instructor signup requires a valid invite code ──────
+    let teacherCodeRow = null;
+
+    if (role === 'instructor') {
+      if (!teacherCode || !teacherCode.trim()) {
+        throw new AppError(
+          'A teacher invite code is required to register as an instructor',
+          400
+        );
+      }
+
+      const [codeRow] = await query(
+        `SELECT id, max_uses, used_count
+         FROM teacher_codes
+         WHERE code = ?
+           AND is_active = TRUE
+           AND (expires_at IS NULL OR expires_at > NOW())`,
+        [teacherCode.trim()]
+      );
+
+      if (!codeRow) {
+        throw new AppError('Invalid or expired teacher code', 400);
+      }
+
+      if (codeRow.used_count >= codeRow.max_uses) {
+        throw new AppError('This teacher code has reached its usage limit', 400);
+      }
+
+      teacherCodeRow = codeRow;
+    }
+
     const passwordHash = await bcrypt.hash(password, 12);
     const userId = uuidv4();
     const verifyToken = uuidv4();
+
+    // Instructors start 'pending' and are locked out of creating
+    // courses/classes/materials until an admin approves them.
+    // Students get NULL since the status doesn't apply to them.
+    const instructorStatus = role === 'instructor' ? 'pending' : null;
 
     await query(
       `INSERT INTO users (
@@ -90,21 +137,41 @@ exports.register = async (req, res, next) => {
         verify_token,
         oauth_provider,
         is_active,
-        is_verified
+        is_verified,
+        instructor_status,
+        teacher_code
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, ?, ?)`,
       [
         userId,
         email,
         passwordHash,
         firstName,
         lastName,
-        role || 'student',
+        role,
         preferredSchoolId || null,
         verifyToken,
-        'local'
+        'local',
+        instructorStatus,
+        role === 'instructor' ? teacherCode.trim() : null,
       ]
     );
+
+    // Record the code redemption + bump used_count.
+    // Kept as best-effort, non-blocking writes — a failure here
+    // shouldn't prevent the registration itself from succeeding.
+    if (teacherCodeRow) {
+      await query(
+        'UPDATE teacher_codes SET used_count = used_count + 1 WHERE id = ?',
+        [teacherCodeRow.id]
+      ).catch(err => logger.warn('Teacher code usage increment failed:', err.message));
+
+      await query(
+        `INSERT INTO teacher_code_redemptions (id, teacher_code_id, user_id)
+         VALUES (?, ?, ?)`,
+        [uuidv4(), teacherCodeRow.id, userId]
+      ).catch(err => logger.warn('Teacher code redemption log failed:', err.message));
+    }
 
     sendWelcomeEmail({
       email,
@@ -116,21 +183,29 @@ exports.register = async (req, res, next) => {
 
     const { accessToken, refreshToken } = generateTokens(
       userId,
-      role || 'student'
+      role
     );
 
     await saveRefreshToken(userId, refreshToken);
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful',
-      data: { accessToken, refreshToken }
+      message: role === 'instructor'
+        ? 'Registration successful. Your instructor account is pending admin approval.'
+        : 'Registration successful',
+      data: {
+        accessToken,
+        refreshToken,
+        instructorStatus,
+      }
     });
 
   } catch (err) {
     next(err);
   }
 };
+
+
 
 
 // ── Login ──────────────────────────────────────────────────
@@ -144,74 +219,87 @@ exports.login = async (req, res, next) => {
     }
 
     const [user] = await query(
-      `SELECT
-          id,
-          email,
-          password_hash,
-          first_name,
-          last_name,
-          role,
-          is_active,
-          is_verified,
-          avatar_url
-       FROM users
-       WHERE email = ?
-       AND oauth_provider = 'local'`,
-      [email.trim().toLowerCase()]
-    );
+  `SELECT
+      id,
+      email,
+      password_hash,
+      first_name,
+      last_name,
+      role,
+      is_active,
+      is_verified,
+      avatar_url,
+      instructor_status
+   FROM users
+   WHERE email = ?
+   AND oauth_provider = 'local'`,
+  [email.trim().toLowerCase()]
+);
 
-    if (!user) {
-      throw new AppError('Invalid email or password', 401);
-    }
+// 2) Then in the response payload further down, add instructorStatus:
+//
+//    BEFORE:
+//    res.json({
+//      success: true,
+//      data: {
+//        accessToken,
+//        refreshToken,
+//        user: {
+//          id: user.id,
+//          email: user.email,
+//          firstName: user.first_name,
+//          lastName: user.last_name,
+//          role: user.role,
+//          avatarUrl: user.avatar_url,
+//          isVerified: user.is_verified,
+//        },
+//      },
+//    });
+//
+//    AFTER:
+res.json({
+  success: true,
+  data: {
+    accessToken,
+    refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+      avatarUrl: user.avatar_url,
+      isVerified: user.is_verified,
+      instructorStatus: user.instructor_status,
+    },
+  },
+});
 
-    if (!user.is_active) {
-      throw new AppError(
-        'Account suspended. Contact support.',
-        403
-      );
-    }
-
-    const valid = await bcrypt.compare(
-      password,
-      user.password_hash
-    );
-
-    if (!valid) {
-      throw new AppError('Invalid email or password', 401);
-    }
-
-    await query(
-      'UPDATE users SET last_login_at = NOW() WHERE id = ?',
-      [user.id]
-    );
-
-    const { accessToken, refreshToken } = generateTokens(
-      user.id,
-      user.role
-    );
-
-    await saveRefreshToken(user.id, refreshToken);
-
-    res.json({
-      success: true,
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          role: user.role,
-          avatarUrl: user.avatar_url,
-          isVerified: user.is_verified,
-        },
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+// 3) Also update `me` (used to refresh user data on app load /
+//    page refresh) the same way — add instructor_status to its
+//    SELECT and to the returned object:
+//
+//    BEFORE (in exports.me):
+//    const [user] = await query(
+//      `SELECT
+//          id, email, first_name, last_name, avatar_url, role,
+//          bio, headline, website_url, linkedin_url, github_url,
+//          subscription_tier, is_verified, created_at
+//       FROM users
+//       WHERE id = ?`,
+//      [req.user.userId]
+//    );
+//
+//    AFTER:
+const [user] = await query(
+  `SELECT
+      id, email, first_name, last_name, avatar_url, role,
+      bio, headline, website_url, linkedin_url, github_url,
+      subscription_tier, is_verified, instructor_status, created_at
+   FROM users
+   WHERE id = ?`,
+  [req.user.userId]
+);
 
 // ── Refresh Token ──────────────────────────────────────────
 

@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import {
   BookOpen, Video, Users, DollarSign, Plus, Eye,
   Edit, Trash2, Play, Calendar, Clock, CheckCircle,
-  XCircle, BarChart2, Upload, Zap, Radio
+  XCircle, BarChart2, Upload, Zap, Radio, ShieldAlert
 } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
+import { useAuth } from '../../hooks';
 
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }) {
@@ -19,6 +20,35 @@ function StatCard({ icon: Icon, label, value, color }) {
       <div>
         <div className="text-2xl font-bold text-white">{value ?? '0'}</div>
         <div className="text-white/50 text-sm">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Locked Instructor Banner ──────────────────────────────
+function InstructorStatusBanner({ instructorStatus }) {
+  if (instructorStatus !== 'pending' && instructorStatus !== 'rejected') return null;
+
+  const rejected = instructorStatus === 'rejected';
+
+  return (
+    <div className={`card flex items-start gap-3 border ${
+      rejected ? 'border-red-500/30 bg-red-500/5' : 'border-yellow-500/30 bg-yellow-500/5'
+    }`}>
+      {rejected
+        ? <ShieldAlert size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+        : <Clock size={20} className="text-yellow-400 flex-shrink-0 mt-0.5" />}
+      <div>
+        <p className="text-white font-medium text-sm">
+          {rejected
+            ? 'Your instructor application was not approved'
+            : 'Your instructor account is pending approval'}
+        </p>
+        <p className="text-white/50 text-sm mt-0.5">
+          {rejected
+            ? 'Contact support if you believe this was a mistake.'
+            : "You'll be able to create courses and schedule live classes once an admin approves your account. This usually takes 1–2 business days."}
+        </p>
       </div>
     </div>
   );
@@ -47,8 +77,11 @@ function ScheduleModal({ onClose, onScheduled }) {
       onScheduled();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to schedule');
-    } finally { setLoading(false); }
+      // api.js response interceptor already shows the error toast
+      // for this request — no need to duplicate it here.
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -160,7 +193,8 @@ function CreateCourseModal({ onClose, onCreated }) {
       toast.success('Course created!');
       onCreated(); onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create course');
+      // api.js response interceptor already shows the error toast
+      // for this request — no need to duplicate it here.
     } finally { setLoading(false); }
   };
 
@@ -243,6 +277,11 @@ export default function InstructorPage() {
   const [showCreateCourse, setShowCreateCourse] = useState(false);
   const [loading, setLoading]         = useState(true);
 
+  const { user } = useAuth();
+  const instructorStatus = user?.instructorStatus; // 'pending' | 'approved' | 'rejected' | null
+  const isLocked = instructorStatus === 'pending' || instructorStatus === 'rejected';
+  const lockedTitle = isLocked ? 'Available once your instructor account is approved' : undefined;
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -272,7 +311,7 @@ export default function InstructorPage() {
       toast.success('Session started! 🔴 You are live');
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to start session');
+      // interceptor handles the error toast
     }
   };
 
@@ -282,7 +321,7 @@ export default function InstructorPage() {
       toast.success('Session ended');
       fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to end session');
+      // interceptor handles the error toast
     }
   };
 
@@ -300,14 +339,26 @@ export default function InstructorPage() {
           <p className="text-white/50 mt-1">Create courses, schedule live classes, track students</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowCreateCourse(true)} className="btn-secondary flex items-center gap-2 text-sm">
+          <button
+            onClick={() => setShowCreateCourse(true)}
+            disabled={isLocked}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title={lockedTitle}
+          >
             <Plus size={15} /> New Course
           </button>
-          <button onClick={() => setShowSchedule(true)} className="btn-primary flex items-center gap-2 text-sm">
+          <button
+            onClick={() => setShowSchedule(true)}
+            disabled={isLocked}
+            className="btn-primary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            title={lockedTitle}
+          >
             <Radio size={15} /> Schedule Live
           </button>
         </div>
       </div>
+
+      <InstructorStatusBanner instructorStatus={instructorStatus} />
 
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-50 rounded-xl p-1 w-fit">
@@ -357,10 +408,20 @@ export default function InstructorPage() {
               <h3 className="text-white font-semibold mb-2">Start Teaching Today</h3>
               <p className="text-white/40 mb-6">Create your first course or schedule a live class</p>
               <div className="flex gap-3 justify-center">
-                <button onClick={() => setShowCreateCourse(true)} className="btn-primary flex items-center gap-2">
+                <button
+                  onClick={() => setShowCreateCourse(true)}
+                  disabled={isLocked}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={lockedTitle}
+                >
                   <Plus size={16} /> Create Course
                 </button>
-                <button onClick={() => setShowSchedule(true)} className="btn-secondary flex items-center gap-2">
+                <button
+                  onClick={() => setShowSchedule(true)}
+                  disabled={isLocked}
+                  className="btn-secondary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={lockedTitle}
+                >
                   <Radio size={16} /> Schedule Live
                 </button>
               </div>
@@ -374,7 +435,12 @@ export default function InstructorPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-white">My Courses ({courses.length})</h2>
-            <button onClick={() => setShowCreateCourse(true)} className="btn-primary text-sm flex items-center gap-2">
+            <button
+              onClick={() => setShowCreateCourse(true)}
+              disabled={isLocked}
+              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={lockedTitle}
+            >
               <Plus size={15} /> Create Course
             </button>
           </div>
@@ -432,7 +498,12 @@ export default function InstructorPage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-white">Live Sessions</h2>
-            <button onClick={() => setShowSchedule(true)} className="btn-primary text-sm flex items-center gap-2">
+            <button
+              onClick={() => setShowSchedule(true)}
+              disabled={isLocked}
+              className="btn-primary text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={lockedTitle}
+            >
               <Radio size={15} /> Schedule Session
             </button>
           </div>
@@ -443,7 +514,12 @@ export default function InstructorPage() {
             <div className="card text-center py-16">
               <Video size={40} className="text-white/10 mx-auto mb-3" />
               <p className="text-white/40 mb-4">No live sessions scheduled</p>
-              <button onClick={() => setShowSchedule(true)} className="btn-primary flex items-center gap-2 mx-auto">
+              <button
+                onClick={() => setShowSchedule(true)}
+                disabled={isLocked}
+                className="btn-primary flex items-center gap-2 mx-auto disabled:opacity-40 disabled:cursor-not-allowed"
+                title={lockedTitle}
+              >
                 <Radio size={16} /> Schedule Your First Class
               </button>
             </div>
