@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Lock, Radio } from 'lucide-react';
 import {
   LiveKitRoom, VideoConference, ControlBar,
   RoomAudioRenderer, useParticipants
@@ -151,6 +152,14 @@ export default function ClassroomPage() {
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatReactions] = useState([]);
 
+  // 2) Add new state near the top of ClassroomPage(), alongside the
+//    existing useState lines:
+const [needsCodeGate, setNeedsCodeGate] = useState(false);
+const [verifying, setVerifying] = useState(false);
+const [gateCode, setGateCode] = useState('');
+const [gatePasscode, setGatePasscode] = useState('');
+const [joinGrant, setJoinGrant] = useState(null);
+
   const { emit, socket } = useSessionSocket(sessionId, {
     'session:participants': ({ count }) => setParticipants(count),
     'classroom:hand-raised': ({ userId }) => toast(`✋ Someone raised their hand`, { icon: '✋' }),
@@ -161,14 +170,50 @@ export default function ClassroomPage() {
     },
   });
 
-  useEffect(() => {
-    api.get(`/live/${sessionId}/token`).then(r => {
-      setTokenData(r.data.data);
-    }).catch(err => {
-      toast.error(err.response?.data?.message || 'Failed to join session');
+  //    AFTER:
+useEffect(() => {
+  api.get(`/live/${sessionId}/token`).then(r => {
+    setTokenData(r.data.data);
+  }).catch(err => {
+    const status = err.response?.status;
+    const msg = err.response?.data?.message || '';
+    if (status === 403 && msg.includes('meeting code')) {
+      // Not the instructor, hasn't verified the code yet — show the gate
+      // instead of bouncing away.
+      setNeedsCodeGate(true);
+    } else {
+      toast.error(msg || 'Failed to join session');
       navigate('/live');
-    }).finally(() => setLoading(false));
-  }, [sessionId]);
+    }
+  }).finally(() => setLoading(false));
+}, [sessionId]);
+
+
+// 4) Add this handler function inside ClassroomPage(), anywhere
+//    near toggleHand/sendReaction:
+const verifyAndJoin = async (e) => {
+  e.preventDefault();
+  if (!gateCode.trim() || !gatePasscode.trim()) {
+    toast.error('Enter both the meeting code and passcode');
+    return;
+  }
+  setVerifying(true);
+  try {
+    const { data } = await api.post(`/live/${sessionId}/verify-code`, {
+      meetingCode: gateCode.replace(/\s/g, ''),
+      passcode: gatePasscode,
+    });
+    const grant = data.data.grant;
+    // Now redeem the grant for the actual Livekit token
+    const tokenRes = await api.get(`/live/${sessionId}/token?grant=${encodeURIComponent(grant)}`);
+    setTokenData(tokenRes.data.data);
+    setNeedsCodeGate(false);
+  } catch (err) {
+    toast.error(err.response?.data?.message || 'Could not verify code');
+  } finally {
+    setVerifying(false);
+  }
+};
 
   const toggleHand = () => {
     const next = !handRaised;
@@ -179,6 +224,60 @@ export default function ClassroomPage() {
   const sendReaction = (emoji) => {
     emit('classroom:reaction', { sessionId, emoji });
   };
+
+  // 5) Add this gate UI as a new early return, placed AFTER the
+  //    existing `if (loading) return (...)` block and BEFORE the
+  //    `if (!tokenData) return null;` line:
+  if (needsCodeGate) {
+    return (
+      <div className="fixed inset-0 bg-surface flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 bg-brand-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Radio size={28} className="text-brand-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">Enter Class Details</h1>
+            <p className="text-white/50 mt-1 text-sm">
+              Enter the meeting code and passcode your instructor shared with you to join this class.
+            </p>
+          </div>
+  
+          <form onSubmit={verifyAndJoin} className="card space-y-4">
+            <div>
+              <label className="text-white/60 text-sm mb-1.5 block">Meeting Code</label>
+              <input
+                value={gateCode}
+                onChange={e => setGateCode(e.target.value)}
+                className="input text-center text-lg font-mono tracking-wider"
+                placeholder="123 456 789"
+                maxLength={11}
+              />
+            </div>
+            <div>
+              <label className="text-white/60 text-sm mb-1.5 block flex items-center gap-1.5">
+                <Lock size={13} /> Passcode
+              </label>
+              <input
+                value={gatePasscode}
+                onChange={e => setGatePasscode(e.target.value.toUpperCase())}
+                className="input text-center font-mono tracking-wider"
+                placeholder="ABC123"
+                maxLength={6}
+              />
+            </div>
+            <button type="submit" disabled={verifying} className="btn-primary w-full flex items-center justify-center gap-2 py-3">
+              {verifying ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Join Class'
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+  
 
   if (loading) return (
     <div className="fixed inset-0 bg-surface flex items-center justify-center">

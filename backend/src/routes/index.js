@@ -16,8 +16,52 @@ router.get('/:sessionId/token',      protect, ctrl.getJoinToken);
 router.post('/:sessionId/start',     protect, requireInstructor, ctrl.startSession);
 router.post('/:sessionId/end',       protect, requireInstructor, ctrl.endSession);
 router.post('/webhook/livekit',      ctrl.livekitWebhook);
+router.post('/:sessionId/verify-code', protect, ctrl.verifySessionCode);
 
 module.exports = router;
+
+
+exports.listSessions = async (req, res, next) => {
+  try {
+    const { status = 'scheduled', page = 1 } = req.query;
+
+    const limit  = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 20));
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const offset  = (pageNum - 1) * limit;
+
+    const dataSql = `
+      SELECT ls.id, ls.title, ls.description, ls.scheduled_at,
+             ls.duration_min, ls.status, ls.is_recorded, ls.is_public,
+             ls.max_participants, ls.current_participants, ls.price, ls.recording_url,
+             ls.meeting_code, ls.passcode,
+             u.id AS instructor_id, u.first_name, u.last_name, u.avatar_url,
+             c.title AS course_title, c.slug AS course_slug
+      FROM live_sessions ls
+      JOIN users u ON u.id = ls.instructor_id
+      LEFT JOIN courses c ON c.id = ls.course_id
+      WHERE ls.status = ?
+      ORDER BY ls.scheduled_at ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+    const sessions = await query(dataSql, [status]);
+
+    const isAdmin = req.user?.role === 'admin';
+    const sanitized = sessions.map(s => {
+      const ownsSession = isAdmin || s.instructor_id === req.user?.userId;
+      if (ownsSession) return s;
+      const { meeting_code, passcode, ...rest } = s;
+      return rest;
+    });
+
+    res.json({
+      success: true,
+      data: sanitized,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 // ============================================================
 // routes/ai.js

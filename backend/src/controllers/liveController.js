@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
 
 // Livekit loaded lazily so server starts without credentials
 function getLivekit() {
@@ -20,6 +21,33 @@ function randomMeetingCode() {
 }
 function randomPasscode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+// ── Join-grant helpers ──────────────────────────────────────
+// A short-lived signed token proving a student verified the
+// meeting code + passcode for a specific session. Required by
+// getJoinToken for anyone who isn't the session's own instructor.
+
+function issueJoinGrant(sessionId, userId) {
+  return jwt.sign(
+    { sessionId, userId, purpose: 'live_join' },
+    process.env.JWT_SECRET,
+    { expiresIn: '5m' }
+  );
+}
+
+function verifyJoinGrant(token, sessionId, userId) {
+  if (!token) return false;
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return (
+      payload.purpose === 'live_join' &&
+      payload.sessionId === sessionId &&
+      payload.userId === userId
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ── Schedule a live session ────────────────────────────────
@@ -90,9 +118,46 @@ exports.joinByCode = async (req, res, next) => {
     if (session.status === 'cancelled') throw new AppError('This class was cancelled', 410);
     if (session.status === 'scheduled') throw new AppError('The host has not started this class yet', 425);
 
-    // Students never start a session — only join an already-live one.
     req.params.sessionId = session.id;
+    req.joinGrant = issueJoinGrant(session.id, userId);
     return exports.getJoinToken(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Verify a code+passcode for a SPECIFIC session ───────────
+// Used when a student lands on /classroom/:id directly (from
+// LivePage, dashboard, or a raw URL) and must prove they have
+// the code+passcode for THAT session before getting a token.
+// POST /api/live/:sessionId/verify-code   Body: { meetingCode, passcode }
+
+exports.verifySessionCode = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const { meetingCode, passcode } = req.body;
+    const userId = req.user.userId;
+
+    if (!meetingCode || !passcode) {
+      throw new AppError('Meeting code and passcode are required', 400);
+    }
+
+    const [session] = await query(
+      `SELECT id, meeting_code, passcode, status
+       FROM live_sessions WHERE id = ?`,
+      [sessionId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+
+    if (session.meeting_code !== meetingCode.replace(/\s/g, '')) {
+      throw new AppError('Meeting code does not match this class', 403);
+    }
+    if (session.passcode !== passcode.toUpperCase()) {
+      throw new AppError('Incorrect passcode', 403);
+    }
+
+    const grant = issueJoinGrant(sessionId, userId);
+    res.json({ success: true, data: { grant } });
   } catch (err) {
     next(err);
   }
@@ -136,8 +201,21 @@ exports.getJoinToken = async (req, res, next) => {
     if (session.status === 'ended') throw new AppError('Session has ended', 410);
     if (session.status === 'cancelled') throw new AppError('Session was cancelled', 410);
 
-    // Check access
     const isInstructor = session.instructor_id === userId;
+    const isAdmin = req.user.role === 'admin';
+
+    // ── Enforce code+passcode verification for everyone else ──
+    if (!isInstructor && !isAdmin) {
+      const grant = req.joinGrant || req.query?.grant;
+      if (!verifyJoinGrant(grant, sessionId, userId)) {
+        throw new AppError(
+          "You must enter this class's meeting code and passcode to join.",
+          403
+        );
+      }
+    }
+
+    // Check access (unchanged from before)
     if (!isInstructor && !session.is_public) {
       if (session.course_id) {
         const [enrolled] = await query(
@@ -173,21 +251,15 @@ exports.getJoinToken = async (req, res, next) => {
 
     const token = await at.toJwt();
 
-    // Track participant
     await query(
       `INSERT IGNORE INTO session_participants (id, session_id, user_id) VALUES (?, ?, ?)`,
       [uuidv4(), sessionId, userId]
     ).catch(() => {});
 
-    // Increment current participants in Redis (faster than DB for real-time)
     const redis = getRedis();
     await redis.incr(`session:${sessionId}:participants`);
 
-
-     // ── Notify instructor: student joined ──────────────────
-    // Only fire when a non-instructor actually joins (not the host themself)
     if (!isInstructor) {
-      // 1) Real-time popup via Socket.io, if instructor is currently online
       const io = req.app.get('io');
       if (io) {
         io.to(`user:${session.instructor_id}`).emit('live:student-joined', {
@@ -199,26 +271,21 @@ exports.getJoinToken = async (req, res, next) => {
         });
       }
 
-      // 2) Persisted notification, shown even if instructor is offline right now
-  
- await query(
-  `INSERT INTO notifications
-   (id, user_id, type, title, body, action_url)
-   VALUES (?, ?, ?, ?, ?, ?)`,
-  [
-    uuidv4(),
-    session.instructor_id,
-    'info',
-    'A student joined your live class',
-    `${user.first_name} ${user.last_name} just joined "${session.title}"`,
-    `/classroom/${sessionId}`,
-  ]
-).catch(err => {
-  logger.error('Notification insert failed:', err);
-});
-
-
-      // don't crash the join flow if notifications insert fails
+      await query(
+        `INSERT INTO notifications
+         (id, user_id, type, title, body, action_url)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          uuidv4(),
+          session.instructor_id,
+          'info',
+          'A student joined your live class',
+          `${user.first_name} ${user.last_name} just joined "${session.title}"`,
+          `/classroom/${sessionId}`,
+        ]
+      ).catch(err => {
+        logger.error('Notification insert failed:', err);
+      });
     }
 
     res.json({
@@ -238,6 +305,7 @@ exports.getJoinToken = async (req, res, next) => {
     next(err);
   }
 };
+
 
 // ── Start session (instructor) ─────────────────────────────
 
