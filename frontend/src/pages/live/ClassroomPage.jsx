@@ -193,7 +193,11 @@ export default function ClassroomPage() {
 
 
   return (
-    <div className="fixed inset-0 bg-surface flex flex-col overflow-hidden">
+    <div className="
+      fixed inset-0 z-50 bg-black
+      flex flex-col
+      md:relative md:inset-auto md:h-screen
+    ">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-surface-50 border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -206,9 +210,15 @@ export default function ClassroomPage() {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         {/* Video area */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className="
+          flex-1 min-h-0 relative
+          w-full
+          aspect-[9/16] md:aspect-video
+          max-h-screen
+          overflow-hidden
+        ">
           <LiveKitRoom
             token={tokenData.token}
             serverUrl={tokenData.serverUrl}
@@ -231,7 +241,7 @@ export default function ClassroomPage() {
           </div>
 
           {/* Reaction bar */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 safe-area-bottom">
             <button onClick={toggleHand}
               className={`p-2 rounded-full transition-colors ${handRaised ? 'bg-yellow-500/30 text-yellow-400' : 'hover:bg-white/10 text-white/60'}`}>
               <Hand size={18} />
@@ -246,7 +256,7 @@ export default function ClassroomPage() {
         </div>
 
         {/* Side panel */}
-        <div className="w-72 flex-shrink-0 flex flex-col bg-surface-50 border-l border-white/10">
+        <div className="w-full md:w-72 flex-shrink-0 flex flex-col bg-surface-50 border-t md:border-t-0 md:border-l border-white/10 max-h-[40vh] md:max-h-none">
           {/* Panel tabs */}
           <div className="flex border-b border-white/10">
             {[
@@ -276,3 +286,12 @@ export default function ClassroomPage() {
     </div>
   );
 }
+
+
+/*
+ADD THIS TO frontend/src/styles/globals.css
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+*/
