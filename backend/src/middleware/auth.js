@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 const { AppError } = require('../utils/errors');
 
+
+
+
 // ── Verify JWT ─────────────────────────────────────────────
 
 exports.protect = async (req, res, next) => {
@@ -96,6 +99,44 @@ exports.requireEnrollment = async (req, res, next) => {
       [req.user.userId, courseId]
     );
     if (!enrollment) throw new AppError('Enrollment required to access this content', 403);
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Require an APPROVED instructor (not just role='instructor') ──
+// Use this on every route that creates/modifies course content,
+// live classes, or lesson materials. Admins always pass through.
+//
+// Must run AFTER `protect` (needs req.user.userId).
+
+exports.requireApprovedInstructor = async (req, res, next) => {
+  try {
+    if (!req.user) return next(new AppError('Authentication required', 401));
+
+    if (req.user.role === 'admin') return next();
+
+    if (req.user.role !== 'instructor') {
+      return next(new AppError('Instructor access required', 403));
+    }
+
+    const [user] = await query(
+      'SELECT instructor_status FROM users WHERE id = ?',
+      [req.user.userId]
+    );
+
+    if (!user) return next(new AppError('User not found', 404));
+
+    if (user.instructor_status !== 'approved') {
+      return next(new AppError(
+        user.instructor_status === 'rejected'
+          ? 'Your instructor application was not approved. Contact support for details.'
+          : 'Your instructor account is pending admin approval. You cannot create or manage content until approved.',
+        403
+      ));
+    }
+
     next();
   } catch (err) {
     next(err);
