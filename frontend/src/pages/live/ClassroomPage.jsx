@@ -151,7 +151,7 @@ export default function ClassroomPage() {
   const [handRaised, setHandRaised] = useState(false);
   const [floatingReactions, setFloatReactions] = useState([]);
 
-  const { emit } = useSessionSocket(sessionId, {
+  const { emit, socket } = useSessionSocket(sessionId, {
     'session:participants': ({ count }) => setParticipants(count),
     'classroom:hand-raised': ({ userId }) => toast(`✋ Someone raised their hand`, { icon: '✋' }),
     'classroom:reaction': ({ userName, emoji }) => {
@@ -191,7 +191,6 @@ export default function ClassroomPage() {
 
   if (!tokenData) return null;
 
-  const socket = null; // useSocket() would be called here in real app
 
   return (
     <div className="fixed inset-0 bg-surface flex flex-col overflow-hidden">
