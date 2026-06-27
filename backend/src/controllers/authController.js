@@ -219,87 +219,76 @@ exports.login = async (req, res, next) => {
     }
 
     const [user] = await query(
-  `SELECT
-      id,
-      email,
-      password_hash,
-      first_name,
-      last_name,
-      role,
-      is_active,
-      is_verified,
-      avatar_url,
-      instructor_status
-   FROM users
-   WHERE email = ?
-   AND oauth_provider = 'local'`,
-  [email.trim().toLowerCase()]
-);
+      `SELECT
+          id,
+          email,
+          password_hash,
+          first_name,
+          last_name,
+          role,
+          is_active,
+          is_verified,
+          avatar_url,
+          instructor_status
+       FROM users
+       WHERE email = ?
+       AND oauth_provider = 'local'`,
+      [email.trim().toLowerCase()]
+    );
 
-// 2) Then in the response payload further down, add instructorStatus:
-//
-//    BEFORE:
-//    res.json({
-//      success: true,
-//      data: {
-//        accessToken,
-//        refreshToken,
-//        user: {
-//          id: user.id,
-//          email: user.email,
-//          firstName: user.first_name,
-//          lastName: user.last_name,
-//          role: user.role,
-//          avatarUrl: user.avatar_url,
-//          isVerified: user.is_verified,
-//        },
-//      },
-//    });
-//
-//    AFTER:
-res.json({
-  success: true,
-  data: {
-    accessToken,
-    refreshToken,
-    user: {
-      id: user.id,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      role: user.role,
-      avatarUrl: user.avatar_url,
-      isVerified: user.is_verified,
-      instructorStatus: user.instructor_status,
-    },
-  },
-});
+    if (!user) {
+      throw new AppError('Invalid email or password', 401);
+    }
 
-// 3) Also update `me` (used to refresh user data on app load /
-//    page refresh) the same way — add instructor_status to its
-//    SELECT and to the returned object:
-//
-//    BEFORE (in exports.me):
-//    const [user] = await query(
-//      `SELECT
-//          id, email, first_name, last_name, avatar_url, role,
-//          bio, headline, website_url, linkedin_url, github_url,
-//          subscription_tier, is_verified, created_at
-//       FROM users
-//       WHERE id = ?`,
-//      [req.user.userId]
-//    );
-//
-//    AFTER:
-const [user] = await query(
-  `SELECT
-      id, email, first_name, last_name, avatar_url, role,
-      bio, headline, website_url, linkedin_url, github_url,
-      subscription_tier, is_verified, instructor_status, created_at
-   FROM users
-   WHERE id = ?`,
-  [req.user.userId]
-);
+    if (!user.is_active) {
+      throw new AppError(
+        'Account suspended. Contact support.',
+        403
+      );
+    }
+
+    const valid = await bcrypt.compare(
+      password,
+      user.password_hash
+    );
+
+    if (!valid) {
+      throw new AppError('Invalid email or password', 401);
+    }
+
+    await query(
+      'UPDATE users SET last_login_at = NOW() WHERE id = ?',
+      [user.id]
+    );
+
+    const { accessToken, refreshToken } = generateTokens(
+      user.id,
+      user.role
+    );
+
+    await saveRefreshToken(user.id, refreshToken);
+
+    res.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role,
+          avatarUrl: user.avatar_url,
+          isVerified: user.is_verified,
+          instructorStatus: user.instructor_status,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 // ── Refresh Token ──────────────────────────────────────────
 
@@ -557,6 +546,7 @@ exports.me = async (req, res, next) => {
           github_url,
           subscription_tier,
           is_verified,
+          instructor_status,
           created_at
        FROM users
        WHERE id = ?`,
