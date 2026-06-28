@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-
 const ctrl = require('../controllers/adminController');
 const { protect, requireAdmin } = require('../middleware/auth');
 
@@ -15,6 +14,16 @@ router.get('/users', ctrl.listUsers);
 router.put('/users/:id/role', ctrl.updateUserRole);
 router.put('/users/:id/ban', ctrl.banUser);
 router.post('/users/:id/flag', ctrl.flagUser);
+
+// Instructor approval queue
+router.get('/instructors/pending',          ctrl.listPendingInstructors);
+router.put('/instructors/:id/approve',      ctrl.approveInstructor);
+router.put('/instructors/:id/reject',       ctrl.rejectInstructor);
+
+// Teacher invite codes
+router.get('/teacher-codes',                ctrl.listTeacherCodes);
+router.post('/teacher-codes',               ctrl.createTeacherCode);
+router.put('/teacher-codes/:id/deactivate', ctrl.deactivateTeacherCode);
 
 // Courses
 router.get('/courses', ctrl.listCourses);
