@@ -43,9 +43,7 @@ async function saveRefreshToken(userId, token) {
 
 // ── Register ───────────────────────────────────────────────
 
-// FIXED REGISTER FUNCTION FOR authController.js
-
-// ── Register ────────────────────────────────────────────────
+// ── Register ───────────────────────────────────────────────
 
 exports.register = async (req, res, next) => {
   try {
@@ -56,26 +54,27 @@ exports.register = async (req, res, next) => {
       password,
       role,
       preferredSchoolId,
-      teacherCode,
     } = req.body;
 
+    // Validation
     if (!firstName || !lastName || !email || !password) {
       throw new AppError(
         'First name, last name, email and password are required',
         400
       );
     }
+    
+    
 
     email = email.trim().toLowerCase();
     role = role || 'student';
 
-    // Only 'student' and 'instructor' may be self-selected at signup.
-    // 'mentor' and 'admin' are assigned later by an admin, never via
-    // this public endpoint.
+    // Only students and instructors can self-register
     if (!['student', 'instructor'].includes(role)) {
       throw new AppError('Invalid role', 400);
     }
 
+    // Check existing user
     const [existing] = await query(
       'SELECT id FROM users WHERE email = ?',
       [email]
@@ -85,46 +84,17 @@ exports.register = async (req, res, next) => {
       throw new AppError('Email already registered', 409);
     }
 
-    // ── Instructor signup requires a valid invite code ──────
-    let teacherCodeRow = null;
-
-    if (role === 'instructor') {
-      if (!teacherCode || !teacherCode.trim()) {
-        throw new AppError(
-          'A teacher invite code is required to register as an instructor',
-          400
-        );
-      }
-
-      const [codeRow] = await query(
-        `SELECT id, max_uses, used_count
-         FROM teacher_codes
-         WHERE code = ?
-           AND is_active = TRUE
-           AND (expires_at IS NULL OR expires_at > NOW())`,
-        [teacherCode.trim()]
-      );
-
-      if (!codeRow) {
-        throw new AppError('Invalid or expired teacher code', 400);
-      }
-
-      if (codeRow.used_count >= codeRow.max_uses) {
-        throw new AppError('This teacher code has reached its usage limit', 400);
-      }
-
-      teacherCodeRow = codeRow;
-    }
-
+    // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
+
     const userId = uuidv4();
     const verifyToken = uuidv4();
 
-    // Instructors start 'pending' and are locked out of creating
-    // courses/classes/materials until an admin approves them.
-    // Students get NULL since the status doesn't apply to them.
-    const instructorStatus = role === 'instructor' ? 'pending' : null;
+    // Instructors are automatically approved
+    const instructorStatus =
+      role === 'instructor' ? 'approved' : null;
 
+    // Create user
     await query(
       `INSERT INTO users (
         id,
@@ -138,10 +108,9 @@ exports.register = async (req, res, next) => {
         oauth_provider,
         is_active,
         is_verified,
-        instructor_status,
-        teacher_code
+        instructor_status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, FALSE, ?)`,
       [
         userId,
         email,
@@ -153,59 +122,43 @@ exports.register = async (req, res, next) => {
         verifyToken,
         'local',
         instructorStatus,
-        role === 'instructor' ? teacherCode.trim() : null,
       ]
     );
 
-    // Record the code redemption + bump used_count.
-    // Kept as best-effort, non-blocking writes — a failure here
-    // shouldn't prevent the registration itself from succeeding.
-    if (teacherCodeRow) {
-      await query(
-        'UPDATE teacher_codes SET used_count = used_count + 1 WHERE id = ?',
-        [teacherCodeRow.id]
-      ).catch(err => logger.warn('Teacher code usage increment failed:', err.message));
-
-      await query(
-        `INSERT INTO teacher_code_redemptions (id, teacher_code_id, user_id)
-         VALUES (?, ?, ?)`,
-        [uuidv4(), teacherCodeRow.id, userId]
-      ).catch(err => logger.warn('Teacher code redemption log failed:', err.message));
-    }
-
+    // Send welcome email
     sendWelcomeEmail({
       email,
       firstName,
-      verifyToken
-    }).catch(err => {
-      logger.warn('Welcome email failed:', err.message);
+      verifyToken,
+    }).catch((err) => {
+      logger.warn(
+        'Welcome email failed:',
+        err.message
+      );
     });
 
-    const { accessToken, refreshToken } = generateTokens(
-      userId,
-      role
-    );
+    // Generate tokens
+    const { accessToken, refreshToken } =
+      generateTokens(userId, role);
 
-    await saveRefreshToken(userId, refreshToken);
+    await saveRefreshToken(
+      userId,
+      refreshToken
+    );
 
     res.status(201).json({
       success: true,
-      message: role === 'instructor'
-        ? 'Registration successful. Your instructor account is pending admin approval.'
-        : 'Registration successful',
+      message: 'Registration successful',
       data: {
         accessToken,
         refreshToken,
         instructorStatus,
-      }
+      },
     });
-
   } catch (err) {
     next(err);
   }
 };
-
-
 
 
 // ── Login ──────────────────────────────────────────────────
