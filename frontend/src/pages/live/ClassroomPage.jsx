@@ -322,8 +322,8 @@ const verifyAndJoin = async (e) => {
             token={tokenData.token}
             serverUrl={tokenData.serverUrl}
             connect={true}
-            video={tokenData.session?.isInstructor}
-            audio={tokenData.session?.isInstructor}
+            video={false}
+            audio={false}
           >
             <VideoConference />
             <RoomAudioRenderer />
