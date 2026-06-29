@@ -490,10 +490,12 @@ exports.mySessions = async (req, res, next) => {
              ls.max_participants, ls.current_participants, ls.price, ls.recording_url,
              ls.meeting_code, ls.passcode,
              u.id AS instructor_id, u.first_name, u.last_name, u.avatar_url,
-             c.title AS course_title, c.slug AS course_slug
+             c.title AS course_title, c.slug AS course_slug,
+             auto_c.slug AS auto_course_slug, auto_c.title AS auto_course_title
       FROM live_sessions ls
       JOIN users u ON u.id = ls.instructor_id
       LEFT JOIN courses c ON c.id = ls.course_id
+      LEFT JOIN courses auto_c ON auto_c.source_live_session_id = ls.id
       WHERE ${where.join(' AND ')}
       ORDER BY ls.status = 'live' DESC, ls.scheduled_at ASC
       LIMIT ${limit}
