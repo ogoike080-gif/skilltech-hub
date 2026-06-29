@@ -411,15 +411,28 @@ exports.listSessions = async (req, res, next) => {
     `;
     const sessions = await query(dataSql, [status]);
 
+    // Strip meeting_code/passcode for any session that isn't the
+    // requester's own (or unless they're an admin). req.user may be
+    // undefined here if this route is ever hit without `protect` —
+    // treat that as "definitely not the owner" rather than crashing.
+    const isAdmin = req.user?.role === 'admin';
+    const requesterId = req.user?.userId;
+
+    const sanitized = sessions.map(s => {
+      const ownsSession = isAdmin || s.instructor_id === requesterId;
+      if (ownsSession) return s;
+      const { meeting_code, passcode, ...rest } = s;
+      return rest;
+    });
+
     res.json({
       success: true,
-      data: sessions,
+      data: sanitized,
     });
   } catch (err) {
     next(err);
   }
 };
-
 // ── Update participant count from Livekit webhook ──────────
 
 exports.livekitWebhook = async (req, res) => {
