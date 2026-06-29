@@ -282,23 +282,23 @@ export default function InstructorPage() {
   const isLocked = instructorStatus === 'pending' || instructorStatus === 'rejected';
   const lockedTitle = isLocked ? 'Available once your instructor account is approved' : undefined;
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Fetch BOTH scheduled and live sessions, otherwise a session
-      // disappears from this page the moment it goes live (since it no
-      // longer matches status=scheduled).
-      const [cRes, scheduledRes, liveRes] = await Promise.all([
-        api.get('/courses/instructor'),
-        api.get('/live?status=scheduled&limit=20'),
-        api.get('/live?status=live&limit=20'),
-      ]);
-      setCourses(cRes.data.data || []);
-      const merged = [...(liveRes.data.data || []), ...(scheduledRes.data.data || [])];
-      setSessions(merged);
-    } catch {}
-    setLoading(false);
-  };
+ 
+
+
+const fetchData = async () => {
+  setLoading(true);
+  try {
+    const [cRes, sessionsRes] = await Promise.all([
+      api.get('/courses/instructor'),
+      api.get('/live/my-sessions'),
+    ]);
+    setCourses(cRes.data.data || []);
+    setSessions(sessionsRes.data.data || []);
+  } catch {}
+  setLoading(false);
+};
+
+
 
   useEffect(() => { fetchData(); }, []);
 

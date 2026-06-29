@@ -433,6 +433,52 @@ exports.listSessions = async (req, res, next) => {
     next(err);
   }
 };
+
+
+
+exports.mySessions = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const instructorId = req.user.userId;
+
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 50));
+
+    const where = ['ls.instructor_id = ?'];
+    const params = [instructorId];
+
+    if (status) {
+      where.push('ls.status = ?');
+      params.push(status);
+    }
+
+    const dataSql = `
+      SELECT ls.id, ls.title, ls.description, ls.scheduled_at,
+             ls.duration_min, ls.status, ls.is_recorded, ls.is_public,
+             ls.max_participants, ls.current_participants, ls.price, ls.recording_url,
+             ls.meeting_code, ls.passcode,
+             u.id AS instructor_id, u.first_name, u.last_name, u.avatar_url,
+             c.title AS course_title, c.slug AS course_slug
+      FROM live_sessions ls
+      JOIN users u ON u.id = ls.instructor_id
+      LEFT JOIN courses c ON c.id = ls.course_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY ls.status = 'live' DESC, ls.scheduled_at ASC
+      LIMIT ${limit}
+    `;
+    const sessions = await query(dataSql, params);
+
+    res.json({
+      success: true,
+      data: sessions,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+
 // ── Update participant count from Livekit webhook ──────────
 
 exports.livekitWebhook = async (req, res) => {
