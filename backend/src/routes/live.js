@@ -2,10 +2,10 @@ const liveController = require('../controllers/liveController');
 const express = require('express');
 const router  = express.Router();
 const ctrl    = require('../controllers/liveController');
-const { protect, requireInstructor, requireApprovedInstructor } = require('../middleware/auth');
+const { protect, requireInstructor } = require('../middleware/auth');
 
 router.get('/',                      ctrl.listSessions);
-router.post('/',                     protect, requireApprovedInstructor, ctrl.schedule);
+router.post('/',                     protect, requireInstructor, ctrl.schedule);
 router.get('/:sessionId/token',      protect, ctrl.getJoinToken);
 router.post('/:sessionId/verify-code', protect, ctrl.verifySessionCode);
 router.post('/:sessionId/start',     protect, requireInstructor, ctrl.startSession);

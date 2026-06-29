@@ -32,6 +32,18 @@ export default function Navbar() {
     { to: '/jobs',      label: 'Jobs' },
   ];
 
+  const accountLinks = [
+    { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/profile',      icon: User,            label: 'Profile' },
+    { to: '/certificates', icon: BookOpen,        label: 'Certificates' },
+    ...(user?.role === 'instructor' || user?.role === 'admin'
+      ? [{ to: '/instructor', icon: Zap, label: 'Instructor Portal' }]
+      : []),
+    ...(user?.role === 'admin'
+      ? [{ to: '/admin', icon: Zap, label: 'Admin Panel' }]
+      : []),
+  ];
+
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-surface/95 backdrop-blur-md border-b border-white/10 shadow-lg' : 'bg-transparent'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,13 +93,7 @@ export default function Navbar() {
                         <p className="text-white font-semibold text-sm">{user?.firstName} {user?.lastName}</p>
                         <p className="text-white/40 text-xs capitalize">{user?.role} · {user?.subscriptionTier}</p>
                       </div>
-                      {[
-                        { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-                        { to: '/profile',    icon: User,            label: 'Profile' },
-                        { to: '/certificates', icon: BookOpen,      label: 'Certificates' },
-                        ...(user?.role === 'instructor' || user?.role === 'admin' ? [{ to: '/instructor', icon: Zap, label: 'Instructor Portal' }] : []),
-                        ...(user?.role === 'admin' ? [{ to: '/admin', icon: Zap, label: 'Admin Panel' }] : []),
-                      ].map(item => (
+                      {accountLinks.map(item => (
                         <Link key={item.to} to={item.to} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-white/5 text-white/70 hover:text-white text-sm transition-colors">
                           <item.icon size={14} /> {item.label}
                         </Link>
@@ -123,7 +129,34 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            {!isAuth && (
+
+            {isAuth ? (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                {/* Current user info */}
+                <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
+                  <img src={user?.avatarUrl || `https://api.dicebear.com/8.x/initials/svg?seed=${user?.firstName}`}
+                    alt="" className="w-8 h-8 rounded-full object-cover" />
+                  <div>
+                    <p className="text-white text-sm font-medium">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-white/40 text-xs capitalize">{user?.role}</p>
+                  </div>
+                </div>
+
+                {/* Account links — Dashboard, Profile, Certificates, Instructor/Admin if applicable */}
+                {accountLinks.map(item => (
+                  <Link key={item.to} to={item.to}
+                    className="flex items-center gap-2.5 px-3 py-2.5 text-white/70 hover:text-white text-sm rounded-lg hover:bg-white/5 mb-1">
+                    <item.icon size={15} /> {item.label}
+                  </Link>
+                ))}
+
+                {/* Sign out */}
+                <button onClick={logout}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-red-400 hover:text-red-300 text-sm rounded-lg hover:bg-red-500/10 mt-1">
+                  <LogOut size={15} /> Sign out
+                </button>
+              </div>
+            ) : (
               <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
                 <Link to="/login"    className="btn-secondary text-sm flex-1 text-center">Sign in</Link>
                 <Link to="/register" className="btn-primary text-sm flex-1 text-center">Register</Link>
