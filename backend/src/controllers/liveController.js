@@ -5,7 +5,16 @@ const jwt = require('jsonwebtoken');
 function getLivekit() {
   return require('livekit-server-sdk');
 }
-const { query } = require('../config/database');
+
+const { EgressClient, EncodedFileType } = require('livekit-server-sdk');
+
+function getEgressClient() {
+  return new EgressClient(livekitUrl, apiKey, apiSecret);
+}
+
+
+
+const { query, transaction } = require('../config/database');
 const { getRedis } = require('../config/redis');
 const { sendClassReminder } = require('../services/email');
 const { AppError } = require('../utils/errors');
@@ -325,7 +334,31 @@ exports.startSession = async (req, res, next) => {
       [sessionId]
     );
 
-    // Notify enrolled students via Socket.io
+    // Start recording if this session is configured to record.
+    // Best-effort: a failure here should not prevent the class
+    // from starting — log and move on.
+    if (session.is_recorded) {
+      try {
+        const egress = getEgressClient();
+        const egressInfo = await egress.startRoomCompositeEgress(
+          session.livekit_room_id,
+          {
+            file: {
+              fileType: EncodedFileType.MP4,
+              filepath: `recordings/${session.livekit_room_id}.mp4`,
+            },
+          }
+        );
+        await query(
+          'UPDATE live_sessions SET egress_id = ? WHERE id = ?',
+          [egressInfo.egressId, sessionId]
+        ).catch(() => {});
+        logger.info(`Started egress recording for room ${session.livekit_room_id}`);
+      } catch (err) {
+        logger.warn('Failed to start egress recording:', err.message);
+      }
+    }
+
     const io = req.app.get('io');
     if (session.course_id) {
       io.to(`course:${session.course_id}`).emit('session:started', {
@@ -506,7 +539,6 @@ exports.livekitWebhook = async (req, res) => {
     }
 
     if (event.event === 'egress_ended') {
-      // Recording ready — save URL
       const url = event.egressInfo?.fileResults?.[0]?.downloadUrl;
       const roomId = event.room?.name;
       if (url && roomId) {
@@ -514,6 +546,15 @@ exports.livekitWebhook = async (req, res) => {
           'UPDATE live_sessions SET recording_url = ? WHERE livekit_room_id = ?',
           [url, roomId]
         );
+
+        // Auto-create a course from this recorded session.
+        // Best-effort — a failure here must not break webhook
+        // processing (Livekit will retry the webhook if we 500).
+        try {
+          await createCourseFromRecordedSession(roomId, url);
+        } catch (err) {
+          logger.error('Auto-course-creation failed:', err);
+        }
       }
     }
 
@@ -523,6 +564,89 @@ exports.livekitWebhook = async (req, res) => {
     res.sendStatus(500);
   }
 };
+
+// ============================================================
+// PART 4: New helper function — add anywhere in liveController.js,
+// e.g. near the other helpers at the bottom (scheduleReminders,
+// processRecording).
+// ============================================================
+
+async function createCourseFromRecordedSession(livekitRoomId, recordingUrl) {
+  const [session] = await query(
+    `SELECT ls.*, u.preferred_school_id AS instructor_preferred_school,
+            c.school_id AS linked_course_school_id
+     FROM live_sessions ls
+     JOIN users u ON u.id = ls.instructor_id
+     LEFT JOIN courses c ON c.id = ls.course_id
+     WHERE ls.livekit_room_id = ?`,
+    [livekitRoomId]
+  );
+
+  if (!session) {
+    logger.warn(`createCourseFromRecordedSession: no session found for room ${livekitRoomId}`);
+    return;
+  }
+
+  // Avoid double-creating if this session already produced a course
+  // (e.g. webhook redelivery from Livekit's retry behavior).
+  const [existing] = await query(
+    'SELECT id FROM courses WHERE source_live_session_id = ?',
+    [session.id]
+  );
+  if (existing) {
+    logger.info(`Course already exists for session ${session.id}, skipping`);
+    return;
+  }
+
+  // Determine school: linked course's school first, then instructor's
+  // preferred school, otherwise bail (a course requires a school_id).
+  const schoolId = session.linked_course_school_id || session.instructor_preferred_school;
+  if (!schoolId) {
+    logger.warn(`Cannot auto-create course for session ${session.id}: no school could be determined`);
+    return;
+  }
+
+  const courseId = uuidv4();
+  const sectionId = uuidv4();
+  const lessonId = uuidv4();
+  const slug = `${session.title}-${Date.now()}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 200);
+
+  await transaction(async (conn) => {
+    await conn.execute(
+      `INSERT INTO courses (
+        id, school_id, instructor_id, title, slug, description,
+        short_desc, level, type, price, currency, is_free,
+        is_published, total_lessons, source_live_session_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'beginner', 'self_paced', 0, 'USD', 1, 1, 1, ?)`,
+      [
+        courseId, schoolId, session.instructor_id, session.title, slug,
+        session.description || `Recorded from the live class "${session.title}".`,
+        session.description?.slice(0, 500) || null,
+        session.id,
+      ]
+    );
+
+    await conn.execute(
+      `INSERT INTO sections (id, course_id, title, sort_order)
+       VALUES (?, ?, 'Recording', 0)`,
+      [sectionId, courseId]
+    );
+
+    await conn.execute(
+      `INSERT INTO lessons (
+        id, section_id, course_id, title, type, content_url,
+        sort_order, is_preview, is_published
+      ) VALUES (?, ?, ?, ?, 'video', ?, 0, 1, 1)`,
+      [lessonId, sectionId, courseId, session.title, recordingUrl]
+    );
+  });
+
+  logger.info(`Auto-created course ${courseId} from live session ${session.id}`);
+}
 
 // ── Helpers ────────────────────────────────────────────────
 
