@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const { processRecordingMedia } = require('../services/mediaProcessor');
 
 // Livekit loaded lazily so server starts without credentials
 function getLivekit() {
@@ -11,8 +12,6 @@ const { EgressClient, EncodedFileType } = require('livekit-server-sdk');
 function getEgressClient() {
   return new EgressClient(livekitUrl, apiKey, apiSecret);
 }
-
-
 
 const { query, transaction } = require('../config/database');
 const { getRedis } = require('../config/redis');
@@ -315,7 +314,6 @@ exports.getJoinToken = async (req, res, next) => {
   }
 };
 
-
 // ── Start session (instructor) ─────────────────────────────
 
 exports.startSession = async (req, res, next) => {
@@ -467,7 +465,8 @@ exports.listSessions = async (req, res, next) => {
   }
 };
 
-
+// ── My sessions (instructor-only) ───────────────────────────
+// GET /api/live/my-sessions?status=scheduled|live|ended (optional)
 
 exports.mySessions = async (req, res, next) => {
   try {
@@ -511,10 +510,7 @@ exports.mySessions = async (req, res, next) => {
   }
 };
 
-
-
-
-// ── Update participant count from Livekit webhook ──────────
+// ── Update participant count / recording status from Livekit webhook ──
 
 exports.livekitWebhook = async (req, res) => {
   try {
@@ -567,11 +563,10 @@ exports.livekitWebhook = async (req, res) => {
   }
 };
 
-// ============================================================
-// PART 4: New helper function — add anywhere in liveController.js,
-// e.g. near the other helpers at the bottom (scheduleReminders,
-// processRecording).
-// ============================================================
+// ── Auto-create a course from a recorded live session ──────
+// Runs noise removal + auto-captions on the recording (best-effort),
+// then creates a published course + section + lesson pointing at the
+// processed (or original, if processing failed) video.
 
 async function createCourseFromRecordedSession(livekitRoomId, recordingUrl) {
   const [session] = await query(
@@ -608,6 +603,12 @@ async function createCourseFromRecordedSession(livekitRoomId, recordingUrl) {
     return;
   }
 
+  // Process the recording: noise removal + auto-captions. Best-effort —
+  // if both fail, we still create the course using the original
+  // unprocessed recording rather than blocking course creation.
+  const { cleanedVideoUrl, captionUrl } = await processRecordingMedia(recordingUrl, session.id);
+  const finalVideoUrl = cleanedVideoUrl || recordingUrl;
+
   const courseId = uuidv4();
   const sectionId = uuidv4();
   const lessonId = uuidv4();
@@ -641,13 +642,17 @@ async function createCourseFromRecordedSession(livekitRoomId, recordingUrl) {
     await conn.execute(
       `INSERT INTO lessons (
         id, section_id, course_id, title, type, content_url,
-        sort_order, is_preview, is_published
-      ) VALUES (?, ?, ?, ?, 'video', ?, 0, 1, 1)`,
-      [lessonId, sectionId, courseId, session.title, recordingUrl]
+        caption_url, sort_order, is_preview, is_published
+      ) VALUES (?, ?, ?, ?, 'video', ?, ?, 0, 1, 1)`,
+      [lessonId, sectionId, courseId, session.title, finalVideoUrl, captionUrl]
     );
   });
 
-  logger.info(`Auto-created course ${courseId} from live session ${session.id}`);
+  logger.info(
+    `Auto-created course ${courseId} from live session ${session.id}` +
+    `${cleanedVideoUrl ? ' (noise-reduced)' : ' (original audio)'}` +
+    `${captionUrl ? ' with captions' : ' without captions'}`
+  );
 }
 
 // ── Helpers ────────────────────────────────────────────────
