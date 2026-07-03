@@ -1,126 +1,139 @@
 const { v4: uuidv4 } = require('uuid');
-// Keep your existing imports...
-// Make sure these already exist:
-const AppError = require('../utils/AppError');
-const { query } = require('../config/database');
+const jwt = require('jsonwebtoken');
+const { processRecordingMedia } = require('../services/mediaProcessor');
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                     */
-/* -------------------------------------------------------------------------- */
+// Livekit loaded lazily so server starts without credentials
+function getLivekit() {
+  return require('livekit-server-sdk');
+}
+
+const { EgressClient, EncodedFileType } = require('livekit-server-sdk');
+
+function getEgressClient() {
+  return new EgressClient(livekitUrl, apiKey, apiSecret);
+}
+
+const { query, transaction } = require('../config/database');
+const { getRedis } = require('../config/redis');
+const { sendClassReminder } = require('../services/email');
+const { AppError } = require('../utils/errors');
+const { logger } = require('../utils/logger');
+
+const livekitUrl = process.env.LIVEKIT_URL;
+const apiKey     = process.env.LIVEKIT_API_KEY;
+const apiSecret  = process.env.LIVEKIT_API_SECRET;
 
 function randomMeetingCode() {
-  return String(Math.floor(100000000 + Math.random() * 900000000));
+  const n = Math.floor(100000000 + Math.random() * 900000000);
+  return String(n);
 }
-
 function randomPasscode() {
-  return Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase();
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-/* -------------------------------------------------------------------------- */
-/* NOTE: Inside exports.schedule                                               */
-/* -------------------------------------------------------------------------- */
+// ── Join-grant helpers ──────────────────────────────────────
+// A short-lived signed token proving a student verified the
+// meeting code + passcode for a specific session. Required by
+// getJoinToken for anyone who isn't the session's own instructor.
 
-/*
-After:
+function issueJoinGrant(sessionId, userId) {
+  return jwt.sign(
+    { sessionId, userId, purpose: 'live_join' },
+    process.env.JWT_SECRET,
+    { expiresIn: '5m' }
+  );
+}
 
-const sessionId = uuidv4();
-
-add:
-
-const meetingCode = randomMeetingCode();
-const passcode = randomPasscode();
-
-Store both meeting_code and passcode in the database.
-
-Return them:
-
-res.status(201).json({
-  success: true,
-  data: {
-    sessionId,
-    livekitRoomId,
-    rtmpKey,
-    meetingCode,
-    passcode,
-  },
-});
-*/
-
-/* -------------------------------------------------------------------------- */
-/* Join using Meeting Code + Passcode                                          */
-/* -------------------------------------------------------------------------- */
-
-exports.joinByCode = async (req, res, next) => {
+function verifyJoinGrant(token, sessionId, userId) {
+  if (!token) return false;
   try {
-    const { meetingCode, passcode } = req.body;
-
-    if (!meetingCode || !passcode) {
-      throw new AppError(
-        'Meeting code and passcode are required',
-        400
-      );
-    }
-
-    const cleanMeetingCode = meetingCode.trim().replace(/\s+/g, '');
-const cleanPasscode = passcode.trim().toUpperCase();
-
-if (session.meeting_code !== cleanMeetingCode) {
-  throw new AppError('Meeting code does not match this class', 403);
-}
-
-if (session.passcode !== cleanPasscode) {
-  throw new AppError('Incorrect passcode', 403);
-}
-
-    const [session] = await query(
-      `
-      SELECT
-        ls.*,
-        u.first_name,
-        u.last_name
-      FROM live_sessions ls
-      JOIN users u
-        ON u.id = ls.instructor_id
-      WHERE ls.meeting_code = ?
-      `,
-      [cleanMeetingCode]
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    return (
+      payload.purpose === 'live_join' &&
+      payload.sessionId === sessionId &&
+      payload.userId === userId
     );
+  } catch {
+    return false;
+  }
+}
 
-    if (!session) {
-      throw new AppError('Invalid meeting code', 404);
-    }
+// ── Schedule a live session ────────────────────────────────
 
-    if (session.passcode !== cleanPasscode) {
-      throw new AppError('Incorrect passcode', 403);
-    }
+exports.schedule = async (req, res, next) => {
+  try {
+    const {
+      courseId, title, description, scheduledAt,
+      durationMin = 60, maxParticipants = 500,
+      isRecorded = true, isPublic = false, price = 0,
+    } = req.body;
 
-    if (session.status === 'ended') {
-      throw new AppError('This class has ended', 410);
-    }
+    const sessionId     = uuidv4();
+    const livekitRoomId = `room-${sessionId}`;
+    const rtmpKey       = `sk_${uuidv4().replace(/-/g, '')}`;
+    const meetingCode   = randomMeetingCode();
+    const passcode      = randomPasscode();
 
-    if (session.status === 'cancelled') {
-      throw new AppError('This class was cancelled', 410);
-    }
+    await query(`
+      INSERT INTO live_sessions
+        (id, course_id, instructor_id, title, description, scheduled_at,
+         duration_min, livekit_room_id, rtmp_key, max_participants,
+         is_recorded, is_public, price, meeting_code, passcode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      sessionId, courseId || null, req.user.userId, title, description,
+      new Date(scheduledAt), durationMin, livekitRoomId, rtmpKey,
+      maxParticipants, isRecorded ? 1 : 0, isPublic ? 1 : 0, price,
+      meetingCode, passcode
+    ]);
 
-    if (session.status === 'scheduled') {
-      throw new AppError(
-        'The host has not started this class yet',
-        425
-      );
-    }
+    // Queue reminders (in production, use Bull/BullMQ)
+    scheduleReminders(sessionId, title, new Date(scheduledAt));
 
-    // Reuse existing token generator
-    req.params.sessionId = session.id;
-
-    return exports.getJoinToken(req, res, next);
-
+    res.status(201).json({
+      success: true,
+      data: { sessionId, livekitRoomId, rtmpKey, meetingCode, passcode },
+    });
   } catch (err) {
     next(err);
   }
 };
+
+// ── Join by meeting code + passcode (students use this) ────
+// POST /api/live/join   Body: { meetingCode, passcode }
+
+exports.joinByCode = async (req, res, next) => {
+  try {
+    const { meetingCode, passcode } = req.body;
+    const userId = req.user.userId;
+
+    if (!meetingCode || !passcode) {
+      throw new AppError('Meeting code and passcode are required', 400);
+    }
+
+    const [session] = await query(
+      `SELECT ls.*, u.first_name, u.last_name
+       FROM live_sessions ls JOIN users u ON u.id = ls.instructor_id
+       WHERE ls.meeting_code = ?`,
+      [meetingCode.replace(/\s/g, '')]
+    );
+
+    if (!session) throw new AppError('Invalid meeting code', 404);
+    if (session.passcode !== passcode.toUpperCase()) {
+      throw new AppError('Incorrect passcode', 403);
+    }
+    if (session.status === 'ended')     throw new AppError('This class has ended', 410);
+    if (session.status === 'cancelled') throw new AppError('This class was cancelled', 410);
+    if (session.status === 'scheduled') throw new AppError('The host has not started this class yet', 425);
+
+    req.params.sessionId = session.id;
+    req.joinGrant = issueJoinGrant(session.id, userId);
+    return exports.getJoinToken(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── Verify a code+passcode for a SPECIFIC session ───────────
 // Used when a student lands on /classroom/:id directly (from
 // LivePage, dashboard, or a raw URL) and must prove they have
@@ -238,7 +251,7 @@ exports.getJoinToken = async (req, res, next) => {
     at.addGrant({
       roomJoin:      true,
       room:          session.livekit_room_id,
-      canPublish: true,
+      canPublish:    true,
       canSubscribe:  true,
       canPublishData: true,
       roomRecord:    isInstructor,
@@ -440,8 +453,7 @@ exports.listSessions = async (req, res, next) => {
       const ownsSession = isAdmin || s.instructor_id === requesterId;
       if (ownsSession) return s;
       const { meeting_code, passcode, ...rest } = s;
-return rest;
-      
+      return rest;
     });
 
     res.json({
@@ -497,6 +509,7 @@ exports.mySessions = async (req, res, next) => {
     next(err);
   }
 };
+
 // ── Update participant count / recording status from Livekit webhook ──
 
 exports.livekitWebhook = async (req, res) => {
