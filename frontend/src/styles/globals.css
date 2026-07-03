@@ -85,3 +85,70 @@
 .prose-dark ul, .prose-dark ol { color: rgba(255,255,255,0.75); padding-left: 1.5rem; margin-bottom: 1rem; }
 .prose-dark li { margin-bottom: 0.5rem; }
 .prose-dark a  { color: #818cf8; text-decoration: underline; }
+
+
+/* ── LiveKit classroom overrides ──────────────────────────────
+   Keep controls permanently visible on mobile (no auto-hide),
+   and shrink the icon buttons to fit smaller screens cleanly.
+   These target LiveKit's own CSS classes from @livekit/components-styles.
+   ------------------------------------------------------------ */
+
+/* Always show the control bar — override LiveKit's auto-hide
+   opacity transition on touch/mobile devices */
+.lk-control-bar,
+.lk-focus-layout .lk-control-bar,
+.lk-grid-layout .lk-control-bar {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: none !important;
+}
+
+/* Prevent the VideoConference wrapper from hiding controls
+   after inactivity (LiveKit sets data-lk-user-facing="false"
+   on the container when the user is idle) */
+[data-lk-user-facing="false"] .lk-control-bar {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Smaller control buttons on mobile */
+@media (max-width: 768px) {
+  .lk-button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 6px !important;
+  }
+
+  .lk-button svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .lk-control-bar {
+    gap: 6px !important;
+    padding: 8px 12px !important;
+  }
+
+  /* Keep the bar anchored at the bottom of the video area
+     and ensure it never gets clipped off-screen */
+  .lk-control-bar {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 10 !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* On desktop keep original sizing but still disable auto-hide */
+@media (min-width: 769px) {
+  .lk-control-bar {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+}
