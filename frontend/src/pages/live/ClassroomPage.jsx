@@ -318,16 +318,40 @@ const verifyAndJoin = async (e) => {
           max-h-screen
           overflow-hidden
         ">
-          <LiveKitRoom
-            token={tokenData.token}
-            serverUrl={tokenData.serverUrl}
-            connect={true}
-            video={false}
-            audio={false}
-          >
-            <VideoConference />
-            <RoomAudioRenderer />
-          </LiveKitRoom>
+          
+
+
+
+
+
+
+
+  <LiveKitRoom
+  token={tokenData.token}
+  serverUrl={tokenData.serverUrl}
+  connect={true}
+  options={{
+    adaptiveStream: true,
+    dynacast: true,
+  }}
+>
+<VideoConference />
+
+<ControlBar
+  controls={{
+    microphone: true,
+    camera: true,
+    screenShare: true,
+    chat: true,
+    participants: true,
+    leave: true,
+    settings: true,
+  }}
+/>
+
+<RoomAudioRenderer />
+</LiveKitRoom>
+
 
           {/* Floating reactions */}
           <div className="absolute bottom-20 right-4 space-y-2 pointer-events-none">
