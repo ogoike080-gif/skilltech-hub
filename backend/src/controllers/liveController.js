@@ -515,6 +515,94 @@ exports.mySessions = async (req, res, next) => {
 // ADD TO liveController.js — paste after exports.mySessions
 // ============================================================
 
+// Start egress recording manually from inside the classroom.
+// POST /api/live/:sessionId/start-recording
+
+exports.startRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [session] = await query(
+      'SELECT * FROM live_sessions WHERE id = ? AND instructor_id = ?',
+      [sessionId, req.user.userId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+    if (session.status !== 'live') throw new AppError('Session must be live to start recording', 400);
+
+    if (session.egress_id) {
+      throw new AppError('Recording already in progress', 400);
+    }
+
+    const egress = getEgressClient();
+    const egressInfo = await egress.startRoomCompositeEgress(
+      session.livekit_room_id,
+      {
+        file: {
+          fileType: EncodedFileType.MP4,
+          filepath: `recordings/${session.livekit_room_id}.mp4`,
+        },
+      }
+    );
+
+    await query(
+      'UPDATE live_sessions SET egress_id = ?, is_recorded = 1 WHERE id = ?',
+      [egressInfo.egressId, sessionId]
+    );
+
+    logger.info(`Manual recording started for session ${sessionId}, egress ${egressInfo.egressId}`);
+
+    res.json({ success: true, message: 'Recording started', data: { egressId: egressInfo.egressId } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Stop egress recording manually from inside the classroom.
+// POST /api/live/:sessionId/stop-recording
+
+exports.stopRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [session] = await query(
+      'SELECT * FROM live_sessions WHERE id = ? AND instructor_id = ?',
+      [sessionId, req.user.userId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+
+    if (!session.egress_id) {
+      throw new AppError('No active recording to stop', 400);
+    }
+
+    const egress = getEgressClient();
+    await egress.stopEgress(session.egress_id);
+
+    await query(
+      'UPDATE live_sessions SET egress_id = NULL WHERE id = ?',
+      [sessionId]
+    );
+
+    logger.info(`Manual recording stopped for session ${sessionId}`);
+
+    res.json({ success: true, message: 'Recording stopped. Your video will be processed shortly.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+// ============================================================
+// ADD TO routes/live.js — two new lines
+// ============================================================
+
+// router.post('/:sessionId/start-recording', protect, requireInstructor, ctrl.startRecording);
+// router.post('/:sessionId/stop-recording',  protect, requireInstructor, ctrl.stopRecording);
+
+
+// ============================================================
+// ADD TO liveController.js — paste after exports.mySessions
+// ============================================================
+
 // Manual trigger: instructor requests processing of their own
 // session's recording (noise removal + captions + course creation).
 // Useful when the auto egress_ended webhook didn't fire, or the
