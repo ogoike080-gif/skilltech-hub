@@ -526,7 +526,7 @@ const fetchData = async () => {
           ) : (
             <div className="grid md:grid-cols-2 gap-4">
               {sessions.map(s => (
-                <HostClassCard key={s.id} session={s} onStarted={fetchData} />
+                <HostClassCard key={s.id} session={s} onStarted={fetchData} onProcessed={fetchData} />
               ))}
             </div>
           )}

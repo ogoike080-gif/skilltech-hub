@@ -510,6 +510,106 @@ exports.mySessions = async (req, res, next) => {
   }
 };
 
+
+// ============================================================
+// ADD TO liveController.js — paste after exports.mySessions
+// ============================================================
+
+// Manual trigger: instructor requests processing of their own
+// session's recording (noise removal + captions + course creation).
+// Useful when the auto egress_ended webhook didn't fire, or the
+// instructor wants to re-trigger after fixing something.
+// POST /api/live/:sessionId/process-recording
+
+exports.processRecordingManually = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    // Only the session's own instructor (or admin) can trigger this
+    const [session] = await query(
+      `SELECT * FROM live_sessions WHERE id = ?`,
+      [sessionId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+
+    const isOwner = session.instructor_id === req.user.userId;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      throw new AppError('You can only process your own sessions', 403);
+    }
+
+    if (!session.recording_url) {
+      throw new AppError(
+        'No recording available yet. The recording may still be processing on Livekit\'s end.',
+        422
+      );
+    }
+
+    // Check if a course already exists — if so, just re-run the
+    // media processing and update the lesson's content_url/caption_url
+    // rather than creating a duplicate course.
+    const [existingCourse] = await query(
+      `SELECT c.id, l.id AS lesson_id
+       FROM courses c
+       JOIN sections s ON s.course_id = c.id
+       JOIN lessons l ON l.section_id = s.id
+       WHERE c.source_live_session_id = ?
+       LIMIT 1`,
+      [sessionId]
+    );
+
+    // Run processing (noise removal + captions) — this uploads to
+    // Cloudinary, not Railway's ephemeral local disk.
+    const { cleanedVideoUrl, captionUrl } = await processRecordingMedia(
+      session.recording_url,
+      sessionId
+    );
+    const finalVideoUrl = cleanedVideoUrl || session.recording_url;
+
+    if (existingCourse) {
+      // Update existing lesson with freshly processed content
+      await query(
+        `UPDATE lessons
+         SET content_url = ?, caption_url = ?
+         WHERE id = ?`,
+        [finalVideoUrl, captionUrl, existingCourse.lesson_id]
+      );
+
+      res.json({
+        success: true,
+        message: 'Recording reprocessed and course updated',
+        data: { courseId: existingCourse.id, cleanedVideoUrl, captionUrl },
+      });
+    } else {
+      // No course yet — run the full auto-creation pipeline
+      await createCourseFromRecordedSession(session.livekit_room_id, session.recording_url);
+
+      // Fetch the newly created course to return its slug
+      const [newCourse] = await query(
+        'SELECT id, slug FROM courses WHERE source_live_session_id = ?',
+        [sessionId]
+      );
+
+      res.json({
+        success: true,
+        message: 'Recording processed and posted to your courses',
+        data: { courseId: newCourse?.id, courseSlug: newCourse?.slug, cleanedVideoUrl, captionUrl },
+      });
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+// ============================================================
+// ADD TO routes/live.js — one new line
+// ============================================================
+
+// router.post('/:sessionId/process-recording', protect, requireInstructor, ctrl.processRecordingManually);
+
+
+
 // ── Update participant count / recording status from Livekit webhook ──
 
 exports.livekitWebhook = async (req, res) => {
