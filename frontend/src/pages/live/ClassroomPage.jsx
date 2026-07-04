@@ -3,12 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Lock, Radio, Mic, MicOff, Video, VideoOff, Circle, Square } from 'lucide-react';
 import {
   LiveKitRoom, VideoConference, ControlBar,
-  RoomAudioRenderer, useParticipants
+  RoomAudioRenderer,
 } from '@livekit/components-react';
+  
+
 import '@livekit/components-styles';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useSessionSocket } from '../../hooks';
+
+
 
 // ── Chat Panel ────────────────────────────────────────────
 function ChatPanel({ sessionId, socket }) {
@@ -133,10 +137,10 @@ function PollPanel({ sessionId, socket, isInstructor }) {
 }
 
 // ── Participant count helper ───────────────────────────────
-function ParticipantCount() {
-  const participants = useParticipants();
-  return <span>{participants.length}</span>;
-}
+//function ParticipantCount() {
+ // const participants = useParticipants();
+ // return <span>{participants.length}</span>;
+//}
 
 // ── Recording button (instructor only) ────────────────────
 function RecordButton({ sessionId, isInstructor }) {
@@ -325,9 +329,9 @@ export default function ClassroomPage() {
             sessionId={sessionId}
             isInstructor={tokenData.session?.isInstructor}
           />
-          <span className="flex items-center gap-1 text-white/50 text-sm">
-            👥 <ParticipantCount />
-          </span>
+             <span className="flex items-center gap-1 text-white/50 text-sm">
+   👥 {participants}
+   </span>
           <button onClick={() => navigate(-1)}
             className="btn-ghost p-1.5 text-white/50 hover:text-red-400 text-sm">✕ Leave</button>
         </div>
