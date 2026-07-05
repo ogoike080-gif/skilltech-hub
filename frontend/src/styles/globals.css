@@ -221,3 +221,13 @@
     visibility: visible !important;
   }
 }
+
+
+/* Prevent LiveKit video grid from pushing reaction bar off-screen on mobile */
+@media (max-width: 768px) {
+  .lk-grid-layout,
+  .lk-focus-layout {
+    max-height: calc(100vh - 120px) !important;
+    overflow: hidden !important;
+  }
+}

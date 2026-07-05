@@ -353,7 +353,7 @@ export default function ClassroomPage() {
           </LiveKitRoom>
 
           {/* Floating reactions */}
-          <div className="flex items-center justify-center gap-3 py-2 border-t border-white/10 bg-surface/50 flex-shrink-0">
+          <div className="flex items-center justify-center gap-3 py-2 border-t border-white/10 bg-surface/80 backdrop-blur-sm flex-shrink-0 sticky bottom-0 z-10 overflow-x-auto">
             {['✋', '👍', '❤️', '😂', '🔥', '👏', '🎉'].map(emoji => (
               <button key={emoji} onClick={() => sendReaction(emoji)}
                 className="text-xl hover:scale-125 transition-transform active:scale-95">
