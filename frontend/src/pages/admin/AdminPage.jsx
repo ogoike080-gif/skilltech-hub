@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -24,6 +24,20 @@ import toast from 'react-hot-toast';
 import LiveMonitoringTab from './LiveMonitoringTab'
 
 
+
+// 2) Add the getYouTubeThumbnail utility (same as InstructorPage):
+function getYouTubeThumbnail(url) {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) return `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`;
+  }
+  return null;
+}
 
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, color }) {
@@ -391,10 +405,174 @@ const TABS = [
   { id: 'sessions',  icon: Video,           label: 'Sessions'  },
   { id: 'live',      icon: Radio,           label: 'Live Monitoring' },
 ];
+
+
+// 3) Add this AdminCreateCourseModal component (before the AdminPage function):
+function AdminCreateCourseModal({ onClose, onCreated }) {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({
+    title: '', shortDesc: '', description: '', schoolId: '',
+    instructorId: '', level: 'beginner', type: 'self_paced',
+    price: 0, language: 'en', youtubeUrl: '',
+  });
+  const [schools, setSchools]           = useState([]);
+  const [instructors, setInstructors]   = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [thumbPreview, setThumbPreview] = useState(null);
+  const [thumbFile, setThumbFile]       = useState(null);
+  const thumbRef                        = useRef(null);
+
+  useEffect(() => {
+    api.get('/schools').then(r => setSchools(r.data.data || [])).catch(() => {});
+    api.get('/admin/students').then(r => {
+      // Filter to instructors only from the users list
+      const instructorList = (r.data.data || []).filter(u => u.role === 'instructor');
+      setInstructors(instructorList);
+    }).catch(() => {});
+  }, []);
+
+  const handleYouTubeUrl = (url) => {
+    setForm(f => ({ ...f, youtubeUrl: url }));
+    const ytThumb = getYouTubeThumbnail(url);
+    if (ytThumb && !thumbFile) setThumbPreview(ytThumb);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.title || !form.schoolId) { toast.error('Title and school required'); return; }
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      if (thumbFile) formData.append('thumbnail', thumbFile);
+      else if (thumbPreview) formData.append('thumbnailUrl', thumbPreview);
+
+      const res = await api.post('/courses', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Course created!');
+      const courseId = res.data.data?.courseId || res.data.data?.id;
+      onCreated?.();
+      onClose();
+      // Navigate directly to the course builder to add content
+      if (courseId) navigate(`/instructor/courses/${courseId}/edit`);
+    } catch {} finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-surface-50 border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-white">Create Course (Admin)</h2>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-xl">✕</button>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          {/* Thumbnail */}
+          <div>
+            <label className="text-white/60 text-sm mb-1.5 block">Thumbnail</label>
+            {thumbPreview ? (
+              <div className="relative rounded-xl overflow-hidden aspect-video mb-2">
+                <img src={thumbPreview} alt="" className="w-full h-full object-cover"
+                  onError={() => setThumbPreview(null)} />
+                <button type="button" onClick={() => { setThumbPreview(null); setThumbFile(null); }}
+                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+              </div>
+            ) : (
+              <div onClick={() => thumbRef.current?.click()}
+                className="w-full aspect-video bg-surface-100 rounded-xl border-2 border-dashed border-white/20 hover:border-brand-500/50 cursor-pointer flex items-center justify-center transition-colors mb-2">
+                <p className="text-white/30 text-xs">Click to upload thumbnail</p>
+              </div>
+            )}
+            <input ref={thumbRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files[0]; if (f) { setThumbFile(f); setThumbPreview(URL.createObjectURL(f)); } }} />
+          </div>
+
+          <div>
+            <label className="text-white/60 text-sm mb-1 block">Course Title *</label>
+            <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+              className="input" placeholder="e.g. Complete React Developer" required />
+          </div>
+
+          <div>
+            <label className="text-white/60 text-sm mb-1 block">
+              YouTube URL <span className="text-white/30">(auto-fills thumbnail)</span>
+            </label>
+            <input value={form.youtubeUrl} onChange={e => handleYouTubeUrl(e.target.value)}
+              className="input" placeholder="https://youtube.com/watch?v=..." />
+          </div>
+
+          <div>
+            <label className="text-white/60 text-sm mb-1 block">Short Description</label>
+            <input value={form.shortDesc} onChange={e => setForm({...form, shortDesc: e.target.value})}
+              className="input" placeholder="One-line summary" />
+          </div>
+
+          <div>
+            <label className="text-white/60 text-sm mb-1 block">Description</label>
+            <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+              className="input resize-none" rows={3} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-white/60 text-sm mb-1 block">School *</label>
+              <select value={form.schoolId} onChange={e => setForm({...form, schoolId: e.target.value})}
+                className="input" required>
+                <option value="">Select school</option>
+                {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-white/60 text-sm mb-1 block">Assign Instructor</label>
+              <select value={form.instructorId} onChange={e => setForm({...form, instructorId: e.target.value})}
+                className="input">
+                <option value="">— Admin owned —</option>
+                {instructors.map(i => (
+                  <option key={i.id} value={i.id}>{i.first_name} {i.last_name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-white/60 text-sm mb-1 block">Level</label>
+              <select value={form.level} onChange={e => setForm({...form, level: e.target.value})} className="input">
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-white/60 text-sm mb-1 block">Price ($)</label>
+              <input type="number" value={form.price} min={0}
+                onChange={e => setForm({...form, price: parseFloat(e.target.value)})}
+                className="input" />
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="submit" disabled={loading}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {loading
+                ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                : 'Create & Open Builder'}
+            </button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
   
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('overview');
+
+  const [showCreateCourse, setShowCreateCourse] = useState(false);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -427,11 +605,35 @@ export default function AdminPage() {
       <div>
   {activeTab === 'overview'  && <Overview />}
   {activeTab === 'users'     && <UsersTab />}
-  {activeTab === 'courses'   && <CoursesTab />}
-  {activeTab === 'payments'  && <PaymentsTab />}
-  {activeTab === 'sessions'  && <SessionsTab />}
-  {activeTab === 'live'      && <LiveMonitoringTab />}
-</div>
+  {activeTab === 'courses' && (
+        <div>
+          {showCreateCourse && (
+            <AdminCreateCourseModal
+              onClose={() => setShowCreateCourse(false)}
+              onCreated={fetchData}
+            />
+          )}
+
+          <button
+            onClick={() => navigate(`/instructor/courses/${course.id}/edit`)}
+            className="btn-ghost text-xs px-2 py-1"
+          >
+            Edit
+          </button>
+
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Courses ({courses.length})</h2>
+            <button onClick={() => setShowCreateCourse(true)} className="btn-primary flex items-center gap-2 text-sm">
+              <Plus size={15} /> Create Course
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'payments'  && <PaymentsTab />}
+      {activeTab === 'sessions'  && <SessionsTab />}
+      {activeTab === 'live'      && <LiveMonitoringTab />}
+      </div>
     </div>
   );
 }

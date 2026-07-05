@@ -10,6 +10,30 @@ import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
 import { useAuth } from '../../hooks';
 
+
+// Extracts a YouTube video ID from any common YouTube URL format
+// and returns the highest-quality thumbnail URL available.
+// Returns null if the URL isn't a recognizable YouTube link.
+function getYouTubeThumbnail(url) {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) {
+      // maxresdefault is 1280x720; falls back to hqdefault (480x360)
+      // if the video doesn't have a high-res thumbnail. We use
+      // maxresdefault here and the <img> onError can fall back.
+      return `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`;
+    }
+  }
+  return null;
+}
+
+
+
 // ── Stat Card ─────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }) {
   return (
@@ -174,54 +198,137 @@ function ScheduleModal({ onClose, onScheduled }) {
   );
 }
 
-// ── Create Course Modal ───────────────────────────────────
+
+// ============================================================
+// UPDATED CreateCourseModal — replace the existing one entirely
+// Adds: YouTube URL field with auto-thumbnail preview,
+// thumbnail upload as an alternative, and shows a preview.
+// ============================================================
+
 function CreateCourseModal({ onClose, onCreated }) {
-  const [form, setForm] = useState({ title: '', shortDesc: '', description: '', schoolId: '', level: 'beginner', type: 'self_paced', price: 0, isFree: true, language: 'en' });
-  const [schools, setSchools] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    title: '', shortDesc: '', description: '', schoolId: '',
+    level: 'beginner', type: 'self_paced', price: 0, isFree: true,
+    language: 'en', youtubeUrl: '',
+  });
+  const [schools, setSchools]         = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const [thumbFile, setThumbFile]     = useState(null);
+  const [thumbPreview, setThumbPreview] = useState(null);
+  const thumbRef                        = useRef(null);
 
   useEffect(() => {
     api.get('/schools').then(r => setSchools(r.data.data || [])).catch(() => {});
   }, []);
+
+  // Auto-fetch YouTube thumbnail when URL is pasted
+  const handleYouTubeUrl = (url) => {
+    setForm(f => ({ ...f, youtubeUrl: url }));
+    const ytThumb = getYouTubeThumbnail(url);
+    if (ytThumb && !thumbFile) {
+      setThumbPreview(ytThumb);
+    }
+  };
+
+  const handleThumbFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setThumbFile(file);
+    setThumbPreview(URL.createObjectURL(file));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     if (!form.title || !form.schoolId) { toast.error('Title and school required'); return; }
     setLoading(true);
     try {
-      await api.post('/courses', form);
+      const formData = new FormData();
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+      if (thumbFile) {
+        formData.append('thumbnail', thumbFile);
+      } else if (thumbPreview) {
+        // If no file uploaded but we have a YouTube thumbnail URL,
+        // pass it so the backend can store it directly.
+        formData.append('thumbnailUrl', thumbPreview);
+      }
+      const res = await api.post('/courses', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
       toast.success('Course created!');
-      onCreated(); onClose();
-    } catch (err) {
-      // api.js response interceptor already shows the error toast
-      // for this request — no need to duplicate it here.
+      onCreated(res.data.data?.courseId);
+      onClose();
+    } catch {
+      // api.js interceptor handles the toast
     } finally { setLoading(false); }
   };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface-50 border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+      <div className="bg-surface-50 border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2"><BookOpen size={18} className="text-brand-400" /> Create Course</h2>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <BookOpen size={18} className="text-brand-400" /> Create Course
+          </h2>
           <button onClick={onClose} className="text-white/40 hover:text-white text-xl">✕</button>
         </div>
+
         <form onSubmit={submit} className="space-y-4">
+          {/* Thumbnail preview / upload */}
+          <div>
+            <label className="text-white/60 text-sm mb-1.5 block">Thumbnail</label>
+            {thumbPreview ? (
+              <div className="relative rounded-xl overflow-hidden aspect-video mb-2">
+                <img src={thumbPreview} alt="Thumbnail preview"
+                  className="w-full h-full object-cover"
+                  onError={() => setThumbPreview(null)} />
+                <button type="button" onClick={() => { setThumbPreview(null); setThumbFile(null); }}
+                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/80">
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div onClick={() => thumbRef.current?.click()}
+                className="w-full aspect-video bg-surface-100 rounded-xl border-2 border-dashed border-white/20 hover:border-brand-500/50 cursor-pointer flex items-center justify-center transition-colors mb-2">
+                <div className="text-center text-white/30">
+                  <Upload size={20} className="mx-auto mb-1" />
+                  <p className="text-xs">Click to upload thumbnail</p>
+                </div>
+              </div>
+            )}
+            <input ref={thumbRef} type="file" accept="image/*" className="hidden" onChange={handleThumbFile} />
+          </div>
+
           <div>
             <label className="text-white/60 text-sm mb-1 block">Course Title *</label>
-            <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="input" placeholder="e.g. Complete React Developer" required />
+            <input value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+              className="input" placeholder="e.g. Complete React Developer" required />
           </div>
+
+          <div>
+            <label className="text-white/60 text-sm mb-1 block">
+              YouTube URL <span className="text-white/30">(auto-fills thumbnail)</span>
+            </label>
+            <input value={form.youtubeUrl} onChange={e => handleYouTubeUrl(e.target.value)}
+              className="input" placeholder="https://youtube.com/watch?v=..." />
+          </div>
+
           <div>
             <label className="text-white/60 text-sm mb-1 block">Short Description</label>
-            <input value={form.shortDesc} onChange={e => setForm({...form, shortDesc: e.target.value})} className="input" placeholder="One-line summary" />
+            <input value={form.shortDesc} onChange={e => setForm({...form, shortDesc: e.target.value})}
+              className="input" placeholder="One-line summary" />
           </div>
+
           <div>
             <label className="text-white/60 text-sm mb-1 block">Full Description</label>
-            <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="input resize-none" rows={3} />
+            <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})}
+              className="input resize-none" rows={3} />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-white/60 text-sm mb-1 block">School *</label>
-              <select value={form.schoolId} onChange={e => setForm({...form, schoolId: e.target.value})} className="input" required>
+              <select value={form.schoolId} onChange={e => setForm({...form, schoolId: e.target.value})}
+                className="input" required>
                 <option value="">Select school</option>
                 {schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
@@ -235,6 +342,7 @@ function CreateCourseModal({ onClose, onCreated }) {
               </select>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-white/60 text-sm mb-1 block">Type</label>
@@ -246,13 +354,18 @@ function CreateCourseModal({ onClose, onCreated }) {
             </div>
             <div>
               <label className="text-white/60 text-sm mb-1 block">Price ($)</label>
-              <input type="number" value={form.price} min={0} onChange={e => setForm({...form, price: parseFloat(e.target.value), isFree: parseFloat(e.target.value) === 0})} className="input" />
+              <input type="number" value={form.price} min={0}
+                onChange={e => setForm({...form, price: parseFloat(e.target.value), isFree: parseFloat(e.target.value) === 0})}
+                className="input" />
             </div>
           </div>
+
           <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={loading} className="btn-primary flex-1 flex items-center justify-center gap-2">
-              {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus size={16} />}
-              {loading ? 'Creating...' : 'Create Course'}
+            <button type="submit" disabled={loading}
+              className="btn-primary flex-1 flex items-center justify-center gap-2">
+              {loading
+                ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating...</>
+                : <><Plus size={16} /> Create Course</>}
             </button>
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           </div>
@@ -261,11 +374,6 @@ function CreateCourseModal({ onClose, onCreated }) {
     </div>
   );
 }
-
-<button onClick={() => navigate(`/instructor/courses/${c.id}/edit`)}
-  className="btn-secondary text-xs flex items-center gap-1 mt-2">
-  <Edit size={12} /> Edit Course
-</button>
 
 // ── Main Instructor Page ──────────────────────────────────
 const TABS = [

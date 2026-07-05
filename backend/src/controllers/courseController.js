@@ -201,13 +201,27 @@ exports.createCourse = async (req, res, next) => {
       JSON.stringify(tags || []), JSON.stringify(requirements || []),
       JSON.stringify(objectives || []), language || 'en'
     ]);
+    // Handle thumbnail — either uploaded file or provided URL
+    let finalThumbUrl = req.body.thumbnailUrl || null;
+    if (req.file) {
+      finalThumbUrl = await uploadImage(req.file.buffer, `courses/${courseId}/thumbnail`);
+    }
+    if (finalThumbUrl) {
+      await query('UPDATE courses SET thumbnail_url = ? WHERE id = ?', [finalThumbUrl, courseId]);
+    }
+
+    // Allow admin to assign course to a specific instructor
+    if (req.body.instructorId && req.user.role === 'admin') {
+      await query('UPDATE courses SET instructor_id = ? WHERE id = ?', [req.body.instructorId, courseId]);
+    }
 
     res.status(201).json({
       success: true,
+      data: { courseId, slug },
       message: 'Course created successfully',
-      data: { id: courseId, slug },
     });
-  } catch (err) {
+
+    } catch (err) {
     next(err);
   }
 };
@@ -692,6 +706,17 @@ exports.submitReview = async (req, res, next) => {
       [uuidv4(), courseId, userId, rating, review, rating, review]
     );
 
+
+    let finalThumbUrl = thumbnailUrl;
+if (req.file) {
+  const { uploadImage } = require('../services/cloudinary');
+  finalThumbUrl = await uploadImage(req.file.buffer, `courses/${courseId}/thumbnail`);
+}
+if (finalThumbUrl) {
+  await query('UPDATE courses SET thumbnail_url = ? WHERE id = ?', [finalThumbUrl, courseId]);
+}
+
+
     // Recalculate avg rating
     const [stats] = await query(
       'SELECT AVG(rating) AS avg_r, COUNT(*) AS total FROM reviews WHERE course_id = ? AND is_visible = TRUE',
@@ -708,3 +733,4 @@ exports.submitReview = async (req, res, next) => {
     next(err);
   }
 };
+
