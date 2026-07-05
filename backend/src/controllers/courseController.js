@@ -303,6 +303,330 @@ exports.updateProgress = async (req, res, next) => {
   }
 };
 
+
+
+// ============================================================
+// ADD TO backend/src/controllers/courseController.js
+// Paste all of these after the existing exports.updateProgress
+// ============================================================
+
+// ── Helper: verify instructor owns the course ──────────────
+async function assertCourseOwner(courseId, userId, role) {
+  if (role === 'admin') return;
+  const [course] = await query(
+    'SELECT id FROM courses WHERE id = ? AND instructor_id = ?',
+    [courseId, userId]
+  );
+  if (!course) throw new AppError('Course not found or access denied', 404);
+}
+
+// ── Get full course with sections + lessons (instructor view) ──
+// GET /courses/:courseId/builder
+
+exports.getCourseBuilder = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const [course] = await query(
+      `SELECT c.*, s.name AS school_name
+       FROM courses c
+       LEFT JOIN schools s ON s.id = c.school_id
+       WHERE c.id = ?`,
+      [courseId]
+    );
+    if (!course) throw new AppError('Course not found', 404);
+
+    const sections = await query(
+      `SELECT * FROM sections WHERE course_id = ? ORDER BY sort_order ASC`,
+      [courseId]
+    );
+
+    const lessons = sections.length
+      ? await query(
+          `SELECT * FROM lessons WHERE course_id = ? ORDER BY sort_order ASC`,
+          [courseId]
+        )
+      : [];
+
+    // Nest lessons inside their sections
+    const sectionsWithLessons = sections.map(s => ({
+      ...s,
+      lessons: lessons.filter(l => l.section_id === s.id),
+    }));
+
+    res.json({ success: true, data: { ...course, sections: sectionsWithLessons } });
+  } catch (err) { next(err); }
+};
+
+// ── Update course details ──────────────────────────────────
+// PUT /courses/:courseId
+
+exports.updateCourse = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const {
+      title, description, shortDesc, level, type,
+      price, language, requirements, objectives,
+    } = req.body;
+
+    await query(
+      `UPDATE courses SET
+        title = COALESCE(?, title),
+        description = COALESCE(?, description),
+        short_desc = COALESCE(?, short_desc),
+        level = COALESCE(?, level),
+        type = COALESCE(?, type),
+        price = COALESCE(?, price),
+        language = COALESCE(?, language),
+        requirements = COALESCE(?, requirements),
+        objectives = COALESCE(?, objectives),
+        is_free = (COALESCE(?, price) = 0),
+        updated_at = NOW()
+       WHERE id = ?`,
+      [title, description, shortDesc, level, type, price, language,
+       requirements, objectives, price, courseId]
+    );
+
+    // Handle thumbnail upload if a file was sent
+    if (req.file) {
+      const { uploadImage } = require('../services/cloudinary');
+      const thumbUrl = await uploadImage(req.file.buffer, `courses/${courseId}/thumbnail`);
+      await query('UPDATE courses SET thumbnail_url = ? WHERE id = ?', [thumbUrl, courseId]);
+    }
+
+    res.json({ success: true, message: 'Course updated' });
+  } catch (err) { next(err); }
+};
+
+// ── Publish / unpublish course ─────────────────────────────
+// PUT /courses/:courseId/publish
+
+exports.togglePublish = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const [course] = await query('SELECT is_published, total_lessons FROM courses WHERE id = ?', [courseId]);
+    if (!course) throw new AppError('Course not found', 404);
+
+    if (!course.is_published && course.total_lessons === 0) {
+      throw new AppError('Add at least one lesson before publishing', 400);
+    }
+
+    const newState = course.is_published ? 0 : 1;
+    await query('UPDATE courses SET is_published = ?, updated_at = NOW() WHERE id = ?', [newState, courseId]);
+
+    res.json({ success: true, data: { is_published: !!newState } });
+  } catch (err) { next(err); }
+};
+
+// ── Sections ───────────────────────────────────────────────
+
+exports.createSection = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const { title } = req.body;
+    if (!title?.trim()) throw new AppError('Section title is required', 400);
+
+    const [last] = await query(
+      'SELECT MAX(sort_order) AS maxOrder FROM sections WHERE course_id = ?',
+      [courseId]
+    );
+    const sectionId = uuidv4();
+    await query(
+      'INSERT INTO sections (id, course_id, title, sort_order) VALUES (?, ?, ?, ?)',
+      [sectionId, courseId, title.trim(), (last?.maxOrder ?? -1) + 1]
+    );
+
+    res.status(201).json({ success: true, data: { id: sectionId, title: title.trim() } });
+  } catch (err) { next(err); }
+};
+
+exports.updateSection = async (req, res, next) => {
+  try {
+    const { courseId, sectionId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const { title } = req.body;
+    if (!title?.trim()) throw new AppError('Title is required', 400);
+
+    await query('UPDATE sections SET title = ? WHERE id = ? AND course_id = ?',
+      [title.trim(), sectionId, courseId]);
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+exports.deleteSection = async (req, res, next) => {
+  try {
+    const { courseId, sectionId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    // Count lessons in this section so we can decrement course total
+    const [{ lessonCount }] = await query(
+      'SELECT COUNT(*) AS lessonCount FROM lessons WHERE section_id = ?',
+      [sectionId]
+    );
+
+    await query('DELETE FROM sections WHERE id = ? AND course_id = ?', [sectionId, courseId]);
+
+    if (lessonCount > 0) {
+      await query(
+        'UPDATE courses SET total_lessons = GREATEST(0, total_lessons - ?) WHERE id = ?',
+        [lessonCount, courseId]
+      );
+    }
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+exports.reorderSections = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    // orderedIds: array of section IDs in the new desired order
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) throw new AppError('orderedIds array required', 400);
+
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        query('UPDATE sections SET sort_order = ? WHERE id = ? AND course_id = ?',
+          [index, id, courseId])
+      )
+    );
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+// ── Lessons ────────────────────────────────────────────────
+
+exports.createLesson = async (req, res, next) => {
+  try {
+    const { courseId, sectionId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const { title, type = 'video', duration, isPreview = false } = req.body;
+    if (!title?.trim()) throw new AppError('Lesson title is required', 400);
+
+    let contentUrl = null;
+
+    // Handle video upload to Cloudinary if a file was provided
+    if (req.file) {
+      const { uploadVideo } = require('../services/cloudinary');
+      contentUrl = await uploadVideo(
+        req.file.buffer,
+        `courses/${courseId}/lessons/${uuidv4()}`
+      );
+    } else if (req.body.contentUrl) {
+      contentUrl = req.body.contentUrl;
+    }
+
+    const [last] = await query(
+      'SELECT MAX(sort_order) AS maxOrder FROM lessons WHERE section_id = ?',
+      [sectionId]
+    );
+    const lessonId = uuidv4();
+
+    await query(
+      `INSERT INTO lessons
+         (id, section_id, course_id, title, type, content_url,
+          duration_sec, sort_order, is_preview, is_published)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [
+        lessonId, sectionId, courseId, title.trim(), type,
+        contentUrl, duration || null,
+        (last?.maxOrder ?? -1) + 1,
+        isPreview ? 1 : 0,
+      ]
+    );
+
+    // Increment total_lessons on the course
+    await query(
+      'UPDATE courses SET total_lessons = total_lessons + 1, updated_at = NOW() WHERE id = ?',
+      [courseId]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { id: lessonId, title: title.trim(), type, contentUrl },
+    });
+  } catch (err) { next(err); }
+};
+
+exports.updateLesson = async (req, res, next) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const { title, isPreview, duration } = req.body;
+
+    let contentUrl = req.body.contentUrl || null;
+    if (req.file) {
+      const { uploadVideo } = require('../services/cloudinary');
+      contentUrl = await uploadVideo(
+        req.file.buffer,
+        `courses/${courseId}/lessons/${lessonId}`
+      );
+    }
+
+    await query(
+      `UPDATE lessons SET
+        title = COALESCE(?, title),
+        content_url = COALESCE(?, content_url),
+        is_preview = COALESCE(?, is_preview),
+        duration_sec = COALESCE(?, duration_sec)
+       WHERE id = ? AND course_id = ?`,
+      [title, contentUrl, isPreview != null ? (isPreview ? 1 : 0) : null,
+       duration, lessonId, courseId]
+    );
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+exports.deleteLesson = async (req, res, next) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    await query('DELETE FROM lessons WHERE id = ? AND course_id = ?', [lessonId, courseId]);
+    await query(
+      'UPDATE courses SET total_lessons = GREATEST(0, total_lessons - 1), updated_at = NOW() WHERE id = ?',
+      [courseId]
+    );
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+exports.reorderLessons = async (req, res, next) => {
+  try {
+    const { courseId, sectionId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds)) throw new AppError('orderedIds array required', 400);
+
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        query('UPDATE lessons SET sort_order = ? WHERE id = ? AND section_id = ?',
+          [index, id, sectionId])
+      )
+    );
+
+    res.json({ success: true });
+  } catch (err) { next(err); }
+};
+
+
 // ── My courses ─────────────────────────────────────────────
 
 exports.myCourses = async (req, res, next) => {

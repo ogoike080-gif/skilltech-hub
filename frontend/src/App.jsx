@@ -11,6 +11,7 @@ console.log('App.jsx .Env', import.meta.env);
 const DiagnosticsPage = lazy(() => import('./pages/DiagnosticsPage'));
 
 
+
 // Lazy-loaded pages
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -38,6 +39,7 @@ const SchoolsPage = lazy(() => import('./pages/schools/SchoolsPage'));
 const SchoolPage = lazy(() => import('./pages/schools/SchoolPage'));
 const StreamStudioPage = lazy(() => import('./pages/streaming/StreamStudioPage'));
 const InstructorPage = lazy(() => import('./pages/instructor/InstructorPage'));
+const CourseBuilderPage = lazy(() => import('./pages/instructor/CourseBuilderPage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
@@ -67,6 +69,7 @@ export default function App() {
 
           <Route path="/auth/callback" element={<OAuthCallbackPage />} />
           <Route path="/auth/error" element={<AuthErrorPage />} />
+
 
           <Route element={<MainLayout />}>
             <Route index element={<HomePage />} />
@@ -107,6 +110,8 @@ export default function App() {
           >
             <Route path="/instructor" element={<InstructorPage />} />
             <Route path="/stream/:sessionId" element={<StreamStudioPage />} />
+            <Route path="/instructor/courses/:courseId/edit" element={<CourseBuilderPage />} />
+
           </Route>
 
           <Route

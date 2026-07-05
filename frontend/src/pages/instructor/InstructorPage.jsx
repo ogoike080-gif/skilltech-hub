@@ -262,6 +262,11 @@ function CreateCourseModal({ onClose, onCreated }) {
   );
 }
 
+<button onClick={() => navigate(`/instructor/courses/${c.id}/edit`)}
+  className="btn-secondary text-xs flex items-center gap-1 mt-2">
+  <Edit size={12} /> Edit Course
+</button>
+
 // ── Main Instructor Page ──────────────────────────────────
 const TABS = [
   { id: 'overview', icon: BarChart2, label: 'Overview'   },
@@ -276,6 +281,9 @@ export default function InstructorPage() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showCreateCourse, setShowCreateCourse] = useState(false);
   const [loading, setLoading]         = useState(true);
+
+
+  
 
   const { user } = useAuth();
   const instructorStatus = user?.instructorStatus; // 'pending' | 'approved' | 'rejected' | null
