@@ -85,6 +85,7 @@ exports.schedule = async (req, res, next) => {
 const roomClient = getRoomClient();
 await roomClient.createRoom({
   name: livekitRoomId,
+  region: 'eu-west-1',
   emptyTimeout: 300,
   maxParticipants: maxParticipants,
   egress: {
