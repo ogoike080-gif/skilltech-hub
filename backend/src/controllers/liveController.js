@@ -7,7 +7,7 @@ function getLivekit() {
   return require('livekit-server-sdk');
 }
 
-const { EgressClient, EncodedFileType } = require('livekit-server-sdk');
+const { EgressClient, EncodedFileType, RoomServiceClient } = require('livekit-server-sdk');
 
 function getEgressClient() {
   return new EgressClient(livekitUrl, apiKey, apiSecret);
