@@ -7,9 +7,23 @@ const router  = express.Router();
 const ctrl    = require('../controllers/courseController');
 const { protect, requireInstructor, requireEnrollment, optionalAuth } = require('../middleware/auth');
 
+const path = require("path");
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+    destination(req, file, cb) {
+        cb(null, "uploads/");
+    },
+    filename(req, file, cb) {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+
 const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB for video uploads
+    storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 * 1024
+    }
 });
 
 // ── Public / student routes ────────────────────────────────

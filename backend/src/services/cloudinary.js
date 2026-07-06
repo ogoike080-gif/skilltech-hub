@@ -19,11 +19,16 @@ async function uploadImage(buffer, publicId) {
     return `https://placehold.co/800x450?text=${encodeURIComponent(publicId)}`;
   }
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { public_id: publicId, resource_type: 'image', overwrite: true,
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }] },
-      (err, result) => err ? reject(err) : resolve(result.secure_url)
-    );
+    const fs = require("fs");
+
+cloudinary.uploader.upload_large(
+    filePath,
+    {
+        resource_type: "video",
+        chunk_size: 6000000
+    }
+);
+
     stream.end(buffer);
   });
 }
@@ -34,13 +39,21 @@ async function uploadVideo(buffer, publicId) {
     return null;
   }
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { public_id: publicId, resource_type: 'video', overwrite: true, chunk_size: 6000000 },
-      (err, result) => err ? reject(err) : resolve(result.secure_url)
-    );
+  const fs = require("fs");
+
+cloudinary.uploader.upload_large(
+    filePath,
+    {
+        resource_type: "video",
+        chunk_size: 6000000
+    }
+);
+
     stream.end(buffer);
   });
 }
+
+
 
 async function uploadBuffer(buffer, publicId, resourceType = 'raw') {
   if (!process.env.CLOUDINARY_CLOUD_NAME) {
@@ -48,10 +61,16 @@ async function uploadBuffer(buffer, publicId, resourceType = 'raw') {
     return null;
   }
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { public_id: publicId, resource_type: resourceType, overwrite: true },
-      (err, result) => err ? reject(err) : resolve(result.secure_url)
-    );
+  const fs = require("fs");
+
+cloudinary.uploader.upload_large(
+    filePath,
+    {
+        resource_type: "video",
+        chunk_size: 6000000
+    }
+);
+
     stream.end(buffer);
   });
 }

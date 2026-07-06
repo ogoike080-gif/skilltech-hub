@@ -4,7 +4,24 @@ const ctrl    = require('../controllers/liveController');
 const liveController = require('../controllers/liveController');
 const { protect, requireInstructor } = require('../middleware/auth');
 const multer  = require('multer');
-const upload  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
+const path = require("path");
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+    destination(req, file, cb) {
+        cb(null, "uploads/");
+    },
+    filename(req, file, cb) {
+        cb(null, Date.now() + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 * 1024
+    }
+});
 
 router.get('/',                            protect, ctrl.listSessions);
 router.post('/',                           protect, requireInstructor, ctrl.schedule);
