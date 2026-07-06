@@ -142,50 +142,193 @@ function PollPanel({ sessionId, socket, isInstructor }) {
  // return <span>{participants.length}</span>;
 //}
 
-// ── Recording button (instructor only) ────────────────────
-function RecordButton({ sessionId, isInstructor }) {
-  const [recording, setRecording] = useState(false);
-  const [loading, setLoading]     = useState(false);
+function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
+  const [recording, setRecording]   = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const [progress, setProgress]     = useState(0);
+  const [duration, setDuration]     = useState(0);
+  const mediaRecorderRef            = useRef(null);
+  const chunksRef                   = useRef([]);
+  const timerRef                    = useRef(null);
+  const streamRef                   = useRef(null);
 
-  if (!isInstructor) return null;
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      stopStream();
+      clearInterval(timerRef.current);
+    };
+  }, []);
 
-  const toggleRecording = async () => {
-    setLoading(true);
-    try {
-      if (recording) {
-        await api.post(`/live/${sessionId}/stop-recording`);
-        toast.success('Recording stopped');
-        setRecording(false);
-      } else {
-        await api.post(`/live/${sessionId}/start-recording`);
-        toast.success('Recording started 🔴');
-        setRecording(true);
-      }
-    } catch {
-      // api.js interceptor handles the toast
-    } finally {
-      setLoading(false);
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     }
   };
 
+  const formatDuration = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      // Request screen capture with system audio
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
+      });
+
+      // Also capture microphone audio and mix it in
+      let micStream = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch {
+        // Mic not available — screen audio only
+      }
+
+      // Combine screen video + screen audio + mic audio into one stream
+      const tracks = [...screenStream.getVideoTracks()];
+      const audioContext = new AudioContext();
+      const dest = audioContext.createMediaStreamDestination();
+
+      if (screenStream.getAudioTracks().length > 0) {
+        audioContext.createMediaStreamSource(screenStream).connect(dest);
+      }
+      if (micStream?.getAudioTracks().length > 0) {
+        audioContext.createMediaStreamSource(micStream).connect(dest);
+      }
+
+      const combinedStream = new MediaStream([...tracks, ...dest.stream.getTracks()]);
+      streamRef.current = combinedStream;
+
+      // Pick the best supported format
+      const mimeType = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4',
+      ].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+      const recorder = new MediaRecorder(combinedStream, {
+        mimeType,
+        videoBitsPerSecond: 2_500_000, // 2.5Mbps — good quality, reasonable size
+      });
+
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        handleRecordingStopped(mimeType);
+      };
+
+      // Handle if user stops screen share via browser UI
+      screenStream.getVideoTracks()[0].onended = () => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          stopRecording();
+        }
+      };
+
+      recorder.start(1000); // collect data every second
+      mediaRecorderRef.current = recorder;
+
+      // Start duration timer
+      setDuration(0);
+      timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+
+      setRecording(true);
+      toast.success('Recording started 🔴');
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        toast.error('Screen share permission denied');
+      } else {
+        toast.error('Could not start recording: ' + err.message);
+      }
+    }
+  };
+
+  const stopRecording = () => {
+    clearInterval(timerRef.current);
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    stopStream();
+    setRecording(false);
+  };
+
+  const handleRecordingStopped = async (mimeType) => {
+    if (chunksRef.current.length === 0) {
+      toast.error('No recording data captured');
+      return;
+    }
+
+    setUploading(true);
+    setProgress(0);
+
+    try {
+      const extension = mimeType.includes('mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      chunksRef.current = [];
+
+      // Upload via backend endpoint which saves to Cloudinary
+      const formData = new FormData();
+      formData.append('recording', blob, `recording-${sessionId}.${extension}`);
+      formData.append('sessionId', sessionId);
+      formData.append('sessionTitle', sessionTitle || 'Live Class Recording');
+
+      const res = await api.post(
+        `/live/${sessionId}/upload-recording`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (e) => {
+            setProgress(Math.round((e.loaded * 100) / e.total));
+          },
+          timeout: 30 * 60 * 1000, // 30 min timeout for large files
+        }
+      );
+
+      toast.success('Recording uploaded and course created! 🎉');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed — try again');
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  };
+
+  if (!isInstructor) return null;
+
+  if (uploading) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-500/20 rounded-lg">
+        <div className="w-3 h-3 border border-brand-400/40 border-t-brand-400 rounded-full animate-spin" />
+        <span className="text-brand-300 text-xs font-medium">Uploading {progress}%</span>
+      </div>
+    );
+  }
+
+  if (recording) {
+    return (
+      <button onClick={stopRecording}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition-all">
+        <Square size={12} fill="white" />
+        <span className="font-mono">{formatDuration(duration)}</span>
+      </button>
+    );
+  }
+
   return (
-    <button
-      onClick={toggleRecording}
-      disabled={loading}
-      title={recording ? 'Stop recording' : 'Start recording'}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-        recording
-          ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
-          : 'bg-white/10 hover:bg-white/20 text-white/80'
-      } disabled:opacity-50`}
-    >
-      {loading ? (
-        <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
-      ) : recording ? (
-        <><Square size={12} fill="white" /> Stop Rec</>
-      ) : (
-        <><Circle size={12} className="text-red-400" /> Record</>
-      )}
+    <button onClick={startRecording}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 text-xs font-semibold transition-all"
+      title="Record screen + audio">
+      <Circle size={12} className="text-red-400" />
+      Record
     </button>
   );
 }

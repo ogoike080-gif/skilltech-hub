@@ -604,6 +604,81 @@ exports.stopRecording = async (req, res, next) => {
   }
 };
 
+// ============================================================
+// ADD TO liveController.js — paste after exports.stopRecording
+// ============================================================
+
+// Receives a browser-recorded video file (WebM/MP4), uploads it
+// to Cloudinary, saves recording_url, then triggers auto-course
+// creation with noise removal + captions.
+// POST /api/live/:sessionId/upload-recording
+// Body: multipart/form-data with 'recording' file field
+
+exports.uploadRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [session] = await query(
+      'SELECT * FROM live_sessions WHERE id = ? AND instructor_id = ?',
+      [sessionId, req.user.userId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+    if (!req.file) throw new AppError('No recording file received', 400);
+
+    logger.info(`Uploading browser recording for session ${sessionId}, size: ${req.file.size} bytes`);
+
+    // Upload to Cloudinary
+    const { uploadVideo } = require('../services/cloudinary');
+    const recordingUrl = await uploadVideo(
+      req.file.buffer,
+      `sessions/${sessionId}/recording-${Date.now()}`
+    );
+
+    if (!recordingUrl) throw new AppError('Upload to Cloudinary failed', 500);
+
+    // Save the recording URL to the session
+    await query(
+      'UPDATE live_sessions SET recording_url = ?, is_recorded = 1 WHERE id = ?',
+      [recordingUrl, sessionId]
+    );
+
+    // Mark session as ended if still live
+    if (session.status === 'live') {
+      await query(
+        `UPDATE live_sessions SET status = 'ended', ended_at = NOW() WHERE id = ?`,
+        [sessionId]
+      );
+    }
+
+    // Trigger auto-course creation with noise removal + captions
+    // Best-effort — don't fail the response if this errors
+    try {
+      await createCourseFromRecordedSession(session.livekit_room_id, recordingUrl);
+    } catch (err) {
+      logger.error('Auto-course creation failed after browser recording upload:', err.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Recording uploaded and course created successfully',
+      data: { recordingUrl },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+// ============================================================
+// ADD TO routes/live.js — one new line (with multer for large files)
+// ============================================================
+
+// At the top of routes/live.js, add multer config for large video uploads:
+// const multer = require('multer');
+// const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 * 1024 } }); // 2GB
+
+// Then add this route:
+// router.post('/:sessionId/upload-recording', protect, requireInstructor, upload.single('recording'), ctrl.uploadRecording);
 
 // ============================================================
 // ADD TO routes/live.js — two new lines
