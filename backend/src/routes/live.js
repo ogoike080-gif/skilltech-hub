@@ -28,6 +28,12 @@ const upload = multer({
     }
 });
 
+// ============================================================
+// ADD TO routes/live.js — one new lines
+// ==========================================================
+
+
+
 router.get('/',                            protect, ctrl.listSessions);
 router.post('/',                           protect, requireInstructor, ctrl.schedule);
 router.get('/my-sessions',                 protect, requireInstructor, ctrl.mySessions);
