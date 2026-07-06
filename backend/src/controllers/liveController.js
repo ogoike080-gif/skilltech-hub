@@ -13,6 +13,10 @@ function getEgressClient() {
   return new EgressClient(livekitUrl, apiKey, apiSecret);
 }
 
+function getRoomClient() {
+  return new RoomServiceClient(livekitUrl, apiKey, apiSecret);
+}
+
 const { query, transaction } = require('../config/database');
 const { getRedis } = require('../config/redis');
 const { sendClassReminder } = require('../services/email');
@@ -73,6 +77,25 @@ exports.schedule = async (req, res, next) => {
     const rtmpKey       = `sk_${uuidv4().replace(/-/g, '')}`;
     const meetingCode   = randomMeetingCode();
     const passcode      = randomPasscode();
+
+
+    // Pre-create the room in eu-west-1 so egress/recording is available.
+// Auto-created rooms (on first join) route to the nearest server
+// which may not support egress (e.g. ME_JEDDAH for African users).
+const roomClient = getRoomClient();
+await roomClient.createRoom({
+  name: livekitRoomId,
+  emptyTimeout: 300,
+  maxParticipants: maxParticipants,
+  egress: {
+    room: {
+      fileOutputs: [{
+        fileType: EncodedFileType.MP4,
+        filepath: `recordings/${livekitRoomId}.mp4`,
+      }],
+    },
+  },
+}).catch(err => logger.warn('Room pre-create failed:', err.message));
 
     await query(`
       INSERT INTO live_sessions
