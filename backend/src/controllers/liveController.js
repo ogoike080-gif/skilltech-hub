@@ -737,10 +737,15 @@ exports.processRecordingManually = async (req, res, next) => {
 
     // Run processing (noise removal + captions) — this uploads to
     // Cloudinary, not Railway's ephemeral local disk.
-    const { cleanedVideoUrl, captionUrl } = await processRecordingMedia(
-      session.recording_url,
-      sessionId
-    );
+  let cleanedVideoUrl = null;
+let captionUrl = null;
+
+try {
+    ({ cleanedVideoUrl, captionUrl } =
+        await processRecordingMedia(recordingUrl, session.id));
+} catch (err) {
+    logger.error(err);
+}
     const finalVideoUrl = cleanedVideoUrl || session.recording_url;
 
     if (existingCourse) {

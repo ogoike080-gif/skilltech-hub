@@ -33,24 +33,17 @@ cloudinary.uploader.upload_large(
   });
 }
 
-async function uploadVideo(buffer, publicId) {
-  if (!process.env.CLOUDINARY_CLOUD_NAME) {
-    console.warn('[cloudinary:DEV] uploadVideo skipped — no credentials');
-    return null;
-  }
-  return new Promise((resolve, reject) => {
-  const fs = require("fs");
+async function uploadVideo(filePath, publicId) {
+    if (!process.env.CLOUDINARY_CLOUD_NAME)
+        return null;
 
-cloudinary.uploader.upload_large(
-    filePath,
-    {
-        resource_type: "video",
+    const result = await cloudinary.uploader.upload_large(filePath, {
+        resource_type: 'video',
+        public_id: publicId,
         chunk_size: 6000000
-    }
-);
+    });
 
-    stream.end(buffer);
-  });
+    return result.secure_url;
 }
 
 

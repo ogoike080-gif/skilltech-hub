@@ -7,12 +7,18 @@ const multer  = require('multer');
 const path = require("path");
 const multer = require("multer");
 
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+
+fs.mkdirSync('uploads', { recursive: true });
+
 const storage = multer.diskStorage({
     destination(req, file, cb) {
-        cb(null, "uploads/");
+        cb(null, 'uploads');
     },
     filename(req, file, cb) {
-        cb(null, Date.now() + path.extname(file.originalname));
+        cb(null, `${Date.now()}-${file.originalname}`);
     }
 });
 
