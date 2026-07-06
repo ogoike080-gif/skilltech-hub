@@ -468,10 +468,11 @@ export default function ClassroomPage() {
         </div>
         <div className="flex items-center gap-2">
           {/* Record button — instructor only */}
-          <RecordButton
-            sessionId={sessionId}
-            isInstructor={tokenData.session?.isInstructor}
-          />
+  <BrowserRecorder
+    sessionId={sessionId}
+    sessionTitle={tokenData.session?.title}
+    isInstructor={tokenData.session?.isInstructor}
+/>
              <span className="flex items-center gap-1 text-white/50 text-sm">
    👥 {participants}
    </span>
@@ -484,13 +485,15 @@ export default function ClassroomPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Video area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <LiveKitRoom
-            token={tokenData.token}
-            serverUrl={tokenData.serverUrl}
-            connect={true}
-            video={false}
-            audio={false}
-          >
+          
+<LiveKitRoom
+  token={tokenData.token}
+  serverUrl={tokenData.serverUrl}
+  connect={true}
+  video={true}
+  audio={true}
+>
+
             <VideoConference />
             <RoomAudioRenderer />
           </LiveKitRoom>
