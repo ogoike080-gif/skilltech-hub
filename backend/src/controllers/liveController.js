@@ -338,15 +338,10 @@ exports.startSession = async (req, res, next) => {
     if (session.is_recorded) {
       try {
         const egress = getEgressClient();
-        const egressInfo = await egress.startRoomCompositeEgress(
-          session.livekit_room_id,
-        {
-  fileOutputs: [{
-    fileType: 'MP4',
-    filepath: `recordings/${session.livekit_room_id}.mp4`,
-  }],
-}
-        );
+       const egressInfo = await egress.startRoomCompositeEgress(
+  session.livekit_room_id,
+  { filepath: `recordings/${session.livekit_room_id}.mp4`, fileType: 'MP4' }
+);
         await query(
           'UPDATE live_sessions SET egress_id = ? WHERE id = ?',
           [egressInfo.egressId, sessionId]
@@ -535,14 +530,9 @@ exports.startRecording = async (req, res, next) => {
 
     const egress = getEgressClient();
     const egressInfo = await egress.startRoomCompositeEgress(
-      session.livekit_room_id,
-      {
-  fileOutputs: [{
-    fileType: 'MP4',
-    filepath: `recordings/${session.livekit_room_id}.mp4`,
-  }],
-}
-    );
+  session.livekit_room_id,
+  { filepath: `recordings/${session.livekit_room_id}.mp4`, fileType: 'MP4' }
+);
 
     await query(
       'UPDATE live_sessions SET egress_id = ?, is_recorded = 1 WHERE id = ?',
