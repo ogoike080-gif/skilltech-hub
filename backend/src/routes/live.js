@@ -5,11 +5,10 @@ const liveController = require('../controllers/liveController');
 const { protect, requireInstructor } = require('../middleware/auth');
 const multer  = require('multer');
 const path = require("path");
-const multer = require("multer");
+
 
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 
 fs.mkdirSync('uploads', { recursive: true });
 

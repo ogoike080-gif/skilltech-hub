@@ -5,7 +5,7 @@ const { query } = require('../config/database');
 const { protect, requireApprovedInstructor } = require('../middleware/auth');
 
 const path = require("path");
-const multer = require("multer");
+
 
 const storage = multer.diskStorage({
     destination(req, file, cb) {

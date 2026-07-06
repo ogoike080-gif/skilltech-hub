@@ -8,7 +8,7 @@ const ctrl    = require('../controllers/courseController');
 const { protect, requireInstructor, requireEnrollment, optionalAuth } = require('../middleware/auth');
 
 const path = require("path");
-const multer = require("multer");
+
 
 const storage = multer.diskStorage({
     destination(req, file, cb) {
