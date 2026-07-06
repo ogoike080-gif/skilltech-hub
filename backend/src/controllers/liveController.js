@@ -7,7 +7,7 @@ function getLivekit() {
   return require('livekit-server-sdk');
 }
 
-const { EgressClient, EncodedFileType } = require('livekit-server-sdk');
+const { EgressClient } = require('livekit-server-sdk');
 
 function getEgressClient() {
   return new EgressClient(livekitUrl, apiKey, apiSecret);
@@ -340,12 +340,12 @@ exports.startSession = async (req, res, next) => {
         const egress = getEgressClient();
         const egressInfo = await egress.startRoomCompositeEgress(
           session.livekit_room_id,
-          {
-            file: {
-              fileType: EncodedFileType.MP4,
-              filepath: `recordings/${session.livekit_room_id}.mp4`,
-            },
-          }
+        {
+  fileOutputs: [{
+    fileType: 'MP4',
+    filepath: `recordings/${session.livekit_room_id}.mp4`,
+  }],
+}
         );
         await query(
           'UPDATE live_sessions SET egress_id = ? WHERE id = ?',
@@ -537,11 +537,11 @@ exports.startRecording = async (req, res, next) => {
     const egressInfo = await egress.startRoomCompositeEgress(
       session.livekit_room_id,
       {
-        file: {
-          fileType: EncodedFileType.MP4,
-          filepath: `recordings/${session.livekit_room_id}.mp4`,
-        },
-      }
+  fileOutputs: [{
+    fileType: 'MP4',
+    filepath: `recordings/${session.livekit_room_id}.mp4`,
+  }],
+}
     );
 
     await query(
