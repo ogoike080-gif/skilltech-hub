@@ -122,6 +122,7 @@ router.post(
 
 
 
+router.post('/:sessionId/save-recording', protect, requireInstructor, ctrl.saveRecording);
 module.exports = router;
 
 // ============================================================
