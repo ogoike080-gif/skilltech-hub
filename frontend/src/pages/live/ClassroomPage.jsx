@@ -143,7 +143,7 @@ function PollPanel({ sessionId, socket, isInstructor }) {
 // REPLACE the existing BrowserRecorder component in ClassroomPage.jsx
 
 const CLOUDINARY_CLOUD = 'dhl0k5obr';
-const CLOUDINARY_PRESET = 'chack';
+const CLOUDINARY_PRESET = 'skilltech_recordings';
 
 function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
   const [recording, setRecording]   = useState(false);
