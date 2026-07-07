@@ -26,6 +26,9 @@ const upload = multer({
     }
 });
 
+router.post('/:courseId/lessons/:lessonId/attachments', protect, requireInstructor, ctrl.addAttachment);
+router.post('/upload-video', protect, requireInstructor, ctrl.uploadVideoCourse);
+
 // ── Public / student routes ────────────────────────────────
 router.get('/',                             optionalAuth, ctrl.listCourses);
 router.get('/my-courses',                   protect, ctrl.myCourses);

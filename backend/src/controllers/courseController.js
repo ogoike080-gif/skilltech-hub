@@ -640,7 +640,21 @@ exports.reorderLessons = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-
+exports.addAttachment = async (req, res, next) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    await assertCourseOwner(courseId, req.user.userId, req.user.role);
+    const { title, fileUrl, cloudinaryId, fileType, fileSize } = req.body;
+    if (!fileUrl) throw new AppError('fileUrl is required', 400);
+    const id = uuidv4();
+    await query(
+      `INSERT INTO lesson_attachments (id, lesson_id, course_id, title, file_url, cloudinary_id, file_type, file_size)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, lessonId, courseId, title || 'Attachment', fileUrl, cloudinaryId || null, fileType || null, fileSize || null]
+    );
+    res.status(201).json({ success: true, data: { id } });
+  } catch (err) { next(err); }
+};
 // ── My courses ─────────────────────────────────────────────
 
 exports.myCourses = async (req, res, next) => {
@@ -734,3 +748,31 @@ if (finalThumbUrl) {
   }
 };
 
+exports.uploadVideoCourse = async (req, res, next) => {
+  try {
+    const { title, shortDesc, schoolId, level, price, videoUrl, thumbnailUrl } = req.body;
+    if (!title || !schoolId || !videoUrl) throw new AppError('title, schoolId and videoUrl required', 400);
+    const courseId  = uuidv4();
+    const sectionId = uuidv4();
+    const lessonId  = uuidv4();
+    const slug = `${title}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 200);
+    await transaction(async (conn) => {
+      await conn.execute(
+        `INSERT INTO courses (id, school_id, instructor_id, title, slug, short_desc, level, type, price, currency, is_free, is_published, total_lessons, thumbnail_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'self_paced', ?, 'USD', ?, 1, 1, ?)`,
+        [courseId, schoolId, req.user.userId, title, slug, shortDesc || null, level || 'beginner',
+         parseFloat(price) || 0, parseFloat(price) === 0 ? 1 : 0, thumbnailUrl || null]
+      );
+      await conn.execute(
+        `INSERT INTO sections (id, course_id, title, sort_order) VALUES (?, ?, 'Main Content', 0)`,
+        [sectionId, courseId]
+      );
+      await conn.execute(
+        `INSERT INTO lessons (id, section_id, course_id, title, type, content_url, sort_order, is_preview, is_published)
+         VALUES (?, ?, ?, ?, 'video', ?, 0, 1, 1)`,
+        [lessonId, sectionId, courseId, title, videoUrl]
+      );
+    });
+    res.status(201).json({ success: true, data: { courseId, slug } });
+  } catch (err) { next(err); }
+};

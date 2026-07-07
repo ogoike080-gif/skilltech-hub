@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { Upload, Video, BookOpen, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BookOpen, Video, Users, DollarSign, Plus, Eye,
+  Upload, Video, BookOpen, Trash2,
+  Users, DollarSign, Plus, Eye,
   Edit, Trash2, Play, Calendar, Clock, CheckCircle,
   XCircle, BarChart2, Upload, Zap, Radio, ShieldAlert
 } from 'lucide-react';
@@ -9,6 +11,9 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import HostClassCard from '../../components/live/HostClassCard';
 import { useAuth } from '../../hooks';
+
+const CLOUDINARY_CLOUD = 'dhl0k5obr';
+const CLOUDINARY_PRESET = 'skilltech_recordings';
 
 
 // Extracts a YouTube video ID from any common YouTube URL format
@@ -390,7 +395,6 @@ export default function InstructorPage() {
   const [showCreateCourse, setShowCreateCourse] = useState(false);
   const [loading, setLoading]         = useState(true);
 
-
   
 
   const { user } = useAuth();
@@ -651,3 +655,4 @@ const fetchData = async () => {
     </div>
   );
 }
+
