@@ -136,11 +136,14 @@ function PollPanel({ sessionId, socket, isInstructor }) {
   );
 }
 
-// ── Participant count helper ───────────────────────────────
-//function ParticipantCount() {
- // const participants = useParticipants();
- // return <span>{participants.length}</span>;
-//}
+// ── BrowserRecorder component ─────────────────────────────
+// Uploads directly to Cloudinary from the browser (no Railway
+// size limit), then notifies backend with the resulting URL.
+//
+// REPLACE the existing BrowserRecorder component in ClassroomPage.jsx
+
+const CLOUDINARY_CLOUD = 'dhl0k5obr';
+const CLOUDINARY_PRESET = 'chack';
 
 function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
   const [recording, setRecording]   = useState(false);
@@ -152,7 +155,6 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
   const timerRef                    = useRef(null);
   const streamRef                   = useRef(null);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       stopStream();
@@ -175,25 +177,21 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
 
   const startRecording = async () => {
     try {
-      // Request screen capture with system audio
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 30, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       });
 
-      // Also capture microphone audio and mix it in
       let micStream = null;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch {
-        // Mic not available — screen audio only
+        // mic not available — screen audio only
       }
 
-      // Combine screen video + screen audio + mic audio into one stream
       const tracks = [...screenStream.getVideoTracks()];
       const audioContext = new AudioContext();
       const dest = audioContext.createMediaStreamDestination();
-
       if (screenStream.getAudioTracks().length > 0) {
         audioContext.createMediaStreamSource(screenStream).connect(dest);
       }
@@ -204,7 +202,6 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
       const combinedStream = new MediaStream([...tracks, ...dest.stream.getTracks()]);
       streamRef.current = combinedStream;
 
-      // Pick the best supported format
       const mimeType = [
         'video/webm;codecs=vp9,opus',
         'video/webm;codecs=vp8,opus',
@@ -214,33 +211,23 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
 
       const recorder = new MediaRecorder(combinedStream, {
         mimeType,
-        videoBitsPerSecond: 2_500_000, // 2.5Mbps — good quality, reasonable size
+        videoBitsPerSecond: 2_500_000,
       });
 
       chunksRef.current = [];
-
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
+      recorder.onstop = () => handleRecordingStopped(mimeType);
 
-      recorder.onstop = () => {
-        handleRecordingStopped(mimeType);
-      };
-
-      // Handle if user stops screen share via browser UI
       screenStream.getVideoTracks()[0].onended = () => {
-        if (mediaRecorderRef.current?.state === 'recording') {
-          stopRecording();
-        }
+        if (mediaRecorderRef.current?.state === 'recording') stopRecording();
       };
 
-      recorder.start(1000); // collect data every second
+      recorder.start(1000);
       mediaRecorderRef.current = recorder;
-
-      // Start duration timer
       setDuration(0);
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-
       setRecording(true);
       toast.success('Recording started 🔴');
     } catch (err) {
@@ -275,27 +262,45 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
       const blob = new Blob(chunksRef.current, { type: mimeType });
       chunksRef.current = [];
 
-      // Upload via backend endpoint which saves to Cloudinary
+      // Step 1: Upload directly to Cloudinary from the browser
+      // This bypasses Railway entirely — no 100MB limit
       const formData = new FormData();
-      formData.append('recording', blob, `recording-${sessionId}.${extension}`);
-      formData.append('sessionId', sessionId);
-      formData.append('sessionTitle', sessionTitle || 'Live Class Recording');
+      formData.append('file', blob, `recording-${sessionId}.${extension}`);
+      formData.append('upload_preset', CLOUDINARY_PRESET);
+      formData.append('folder', 'sessions');
+      formData.append('resource_type', 'video');
 
-      const res = await api.post(
-        `/live/${sessionId}/upload-recording`,
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: (e) => {
+      const cloudinaryRes = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
             setProgress(Math.round((e.loaded * 100) / e.total));
-          },
-          timeout: 30 * 60 * 1000, // 30 min timeout for large files
-        }
-      );
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(`Cloudinary upload failed: ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/video/upload`);
+        xhr.send(formData);
+      });
 
-      toast.success('Recording uploaded and course created! 🎉');
+      const recordingUrl = cloudinaryRes.secure_url;
+
+      // Step 2: Notify backend with the Cloudinary URL (tiny JSON payload)
+      await api.post(`/live/${sessionId}/save-recording`, {
+        recordingUrl,
+        sessionTitle: sessionTitle || 'Live Class Recording',
+      });
+
+      toast.success('Recording saved and course created! 🎉');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Upload failed — try again');
+      console.error('Recording upload error:', err);
+      toast.error(err.message || 'Upload failed — try again');
     } finally {
       setUploading(false);
       setProgress(0);
@@ -308,7 +313,9 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
     return (
       <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-500/20 rounded-lg">
         <div className="w-3 h-3 border border-brand-400/40 border-t-brand-400 rounded-full animate-spin" />
-        <span className="text-brand-300 text-xs font-medium">Uploading {progress}%</span>
+        <span className="text-brand-300 text-xs font-medium">
+          {progress < 100 ? `Uploading ${progress}%` : 'Processing...'}
+        </span>
       </div>
     );
   }

@@ -8,6 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+
 // Ensure uploads folder exists
 fs.mkdirSync('uploads', { recursive: true });
 
@@ -118,4 +119,12 @@ router.post(
   ctrl.livekitWebhook
 );
 
+
+
+
 module.exports = router;
+
+// ============================================================
+// ADD TO routes/live.js — one new line before module.exports
+// ============================================================
+router.post('/:sessionId/save-recording', protect, requireInstructor, ctrl.saveRecording);

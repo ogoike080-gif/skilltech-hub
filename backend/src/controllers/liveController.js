@@ -670,6 +670,62 @@ exports.uploadRecording = async (req, res, next) => {
 
 
 // ============================================================
+// ADD TO liveController.js — paste after exports.uploadRecording
+// ============================================================
+// Receives the Cloudinary URL already uploaded by the browser
+// directly. Just saves the URL and triggers course creation.
+// POST /api/live/:sessionId/save-recording
+// Body: { recordingUrl, sessionTitle }
+
+exports.saveRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+    const { recordingUrl, sessionTitle } = req.body;
+
+    if (!recordingUrl) throw new AppError('recordingUrl is required', 400);
+
+    const [session] = await query(
+      'SELECT * FROM live_sessions WHERE id = ? AND instructor_id = ?',
+      [sessionId, req.user.userId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+
+    // Save the Cloudinary URL
+    await query(
+      'UPDATE live_sessions SET recording_url = ?, is_recorded = 1 WHERE id = ?',
+      [recordingUrl, sessionId]
+    );
+
+    // Mark session as ended if still live
+    if (session.status === 'live') {
+      await query(
+        `UPDATE live_sessions SET status = 'ended', ended_at = NOW() WHERE id = ?`,
+        [sessionId]
+      );
+    }
+
+    logger.info(`Browser recording saved for session ${sessionId}: ${recordingUrl}`);
+
+    // Trigger auto-course creation with noise removal + captions
+    try {
+      await createCourseFromRecordedSession(session.livekit_room_id, recordingUrl);
+    } catch (err) {
+      logger.error('Auto-course creation failed after save-recording:', err.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Recording saved and course created',
+      data: { recordingUrl },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
+// ============================================================
 // ADD TO routes/live.js — one new line (with multer for large files)
 // ============================================================
 
