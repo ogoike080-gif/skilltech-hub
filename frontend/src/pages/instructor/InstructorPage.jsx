@@ -1,4 +1,3 @@
-import { Upload, Video, BookOpen, Trash2 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
