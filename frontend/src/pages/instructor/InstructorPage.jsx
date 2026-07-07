@@ -2,10 +2,24 @@ import { Upload, Video, BookOpen, Trash2 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Upload, Video, BookOpen, Trash2,
-  Users, DollarSign, Plus, Eye,
-  Edit, Trash2, Play, Calendar, Clock, CheckCircle,
-  XCircle, BarChart2, Upload, Zap, Radio, ShieldAlert
+  Upload,
+  Video,
+  BookOpen,
+  Trash2,
+  Users,
+  DollarSign,
+  Plus,
+  Eye,
+  Edit,
+  Play,
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  BarChart2,
+  Zap,
+  Radio,
+  ShieldAlert
 } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
