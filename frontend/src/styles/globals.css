@@ -244,9 +244,12 @@
   }
 
   body {
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-  }
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+}
+
+
 }
 
