@@ -224,9 +224,29 @@
 
 
 @media (max-width: 768px) {
-  .lk-grid-layout,
-  .lk-focus-layout {
-    max-height: calc(100vh - 160px) !important;
-    overflow: hidden !important;
+  .fixed.inset-0 {
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+
+  .bg-\[#0a0a12\] {
+    background-color: #0a0a12 !important;
+  }
+
+  .lk-video-conference {
+    background-color: #0a0a12 !important;
+  }
+
+  .lk-focus-layout,
+  .lk-grid-layout {
+    background-color: #0a0a12 !important;
+  }
+
+  body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
   }
 }
+

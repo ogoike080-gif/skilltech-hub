@@ -176,7 +176,17 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
   };
 
   const startRecording = async () => {
-    try {
+  try {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+    const supportsDisplayMedia =
+      typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+
+    let stream;
+
+    if (!isMobile && supportsDisplayMedia) {
+      // Desktop: capture screen + audio
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 30, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
@@ -186,7 +196,7 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       } catch {
-        // mic not available — screen audio only
+        // mic not available
       }
 
       const tracks = [...screenStream.getVideoTracks()];
@@ -199,45 +209,64 @@ function BrowserRecorder({ sessionId, sessionTitle, isInstructor }) {
         audioContext.createMediaStreamSource(micStream).connect(dest);
       }
 
-      const combinedStream = new MediaStream([...tracks, ...dest.stream.getTracks()]);
-      streamRef.current = combinedStream;
+      stream = new MediaStream([...tracks, ...dest.stream.getTracks()]);
 
-      const mimeType = [
-        'video/webm;codecs=vp9,opus',
-        'video/webm;codecs=vp8,opus',
-        'video/webm',
-        'video/mp4',
-      ].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
-
-      const recorder = new MediaRecorder(combinedStream, {
-        mimeType,
-        videoBitsPerSecond: 2_500_000,
-      });
-
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => handleRecordingStopped(mimeType);
-
+      // Stop if user ends screen share via browser UI
       screenStream.getVideoTracks()[0].onended = () => {
         if (mediaRecorderRef.current?.state === 'recording') stopRecording();
       };
-
-      recorder.start(1000);
-      mediaRecorderRef.current = recorder;
-      setDuration(0);
-      timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-      setRecording(true);
-      toast.success('Recording started 🔴');
-    } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        toast.error('Screen share permission denied');
-      } else {
-        toast.error('Could not start recording: ' + err.message);
-      }
+    } else {
+      // Mobile fallback: capture camera + microphone
+      // getDisplayMedia not supported on mobile browsers
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: true,
+      });
+      toast('Recording camera view on mobile 📱', { duration: 3000 });
     }
-  };
+
+    streamRef.current = stream;
+
+    const mimeType = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4',
+    ].find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+    const recorder = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 2_500_000,
+    });
+
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => handleRecordingStopped(mimeType);
+    recorder.start(1000);
+    mediaRecorderRef.current = recorder;
+
+    setDuration(0);
+    timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+    setRecording(true);
+    toast.success(isMobile || !supportsDisplayMedia ? 'Camera recording started 🔴' : 'Screen recording started 🔴');
+
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      toast.error('Camera/microphone permission denied. Please allow access and try again.');
+    } else if (err.name === 'NotFoundError') {
+      toast.error('No camera or microphone found on this device.');
+    } else {
+      toast.error('Could not start recording: ' + err.message);
+    }
+  }
+};
+
 
   const stopRecording = () => {
     clearInterval(timerRef.current);
