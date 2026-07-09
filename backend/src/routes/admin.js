@@ -63,7 +63,7 @@ router.delete('/videos/:id', ctrl.deleteMotivationalVideo);
 // Add this line before module.exports = router;
 // ============================================================
 
-router.delete('/sessions/:sessionId/recording', adminCtrl.deleteSessionRecording);
+router.delete('/sessions/:sessionId/recording', ctrl.deleteSessionRecording);
 
 
 module.exports = router;
