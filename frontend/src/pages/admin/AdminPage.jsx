@@ -244,22 +244,35 @@ function UsersTab() {
     </div>
   );
 }
-
 // ── Courses Tab ───────────────────────────────────────────
 function CoursesTab() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/admin/courses').then(r => setCourses(r.data.data || [])).finally(() => setLoading(false));
+    api.get('/admin/courses')
+      .then(r => setCourses(r.data.data || []))
+      .finally(() => setLoading(false));
   }, []);
 
   const togglePublish = async (id, isPublished) => {
     try {
-      await api.put(`/admin/courses/${id}/publish`, { published: !isPublished });
+      await api.put(`/admin/courses/${id}/publish`, {
+        published: !isPublished
+      });
+
       toast.success(!isPublished ? 'Course published' : 'Course unpublished');
-      setCourses(cs => cs.map(c => c.id === id ? { ...c, is_published: !isPublished } : c));
-    } catch { toast.error('Failed'); }
+
+      setCourses(cs =>
+        cs.map(c =>
+          c.id === id
+            ? { ...c, is_published: !isPublished }
+            : c
+        )
+      );
+    } catch {
+      toast.error('Failed');
+    }
   };
 
   return (
@@ -268,41 +281,107 @@ function CoursesTab() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10">
-              {['Course','Instructor','School','Students','Status','Actions'].map(h => (
-                <th key={h} className="text-left text-white/40 font-medium px-4 py-3 text-xs uppercase tracking-wider">{h}</th>
+              {['Course', 'Instructor', 'School', 'Students', 'Status', 'Actions'].map(h => (
+                <th
+                  key={h}
+                  className="text-left text-white/40 font-medium px-4 py-3 text-xs uppercase tracking-wider"
+                >
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {loading ? (
               [...Array(6)].map((_, i) => (
-                <tr key={i}><td colSpan={6} className="px-4 py-3"><div className="h-4 bg-white/5 rounded animate-pulse"/></td></tr>
+                <tr key={i}>
+                  <td colSpan={6} className="px-4 py-3">
+                    <div className="h-4 bg-white/5 rounded animate-pulse" />
+                  </td>
+                </tr>
               ))
             ) : courses.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-white/30">No courses yet</td></tr>
-            ) : courses.map(c => (
-              <tr key={c.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                <td className="px-4 py-3">
-                  <p className="text-white font-medium truncate max-w-[200px]">{c.title}</p>
-                  <p className="text-white/40 text-xs">${c.price}</p>
-                </td>
-                <td className="px-4 py-3 text-white/70">{c.first_name} {c.last_name}</td>
-                <td className="px-4 py-3 text-white/50 text-xs">{c.school_name}</td>
-                <td className="px-4 py-3 text-white/70">{c.total_students}</td>
-                <td className="px-4 py-3">
-                  <span className={`badge text-xs ${c.is_published ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
-                    {c.is_published ? 'Published' : 'Draft'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <button onClick={() => togglePublish(c.id, c.is_published)}
-                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-white/40 hover:text-white"
-                    title={c.is_published ? 'Unpublish' : 'Publish'}>
-                    {c.is_published ? <XCircle size={15} className="text-red-400" /> : <CheckCircle size={15} className="text-green-400" />}
-                  </button>
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-white/30">
+                  No courses yet
                 </td>
               </tr>
-            ))}
+            ) : (
+              courses.map(c => (
+                <tr
+                  key={c.id}
+                  className="border-b border-white/5 hover:bg-white/3 transition-colors"
+                >
+                  <td className="px-4 py-3">
+                    <p className="text-white font-medium truncate max-w-[200px]">
+                      {c.title}
+                    </p>
+                    <p className="text-white/40 text-xs">
+                      ${c.price}
+                    </p>
+                  </td>
+
+                  <td className="px-4 py-3 text-white/70">
+                    {c.first_name} {c.last_name}
+                  </td>
+
+                  <td className="px-4 py-3 text-white/50 text-xs">
+                    {c.school_name}
+                  </td>
+
+                  <td className="px-4 py-3 text-white/70">
+                    {c.total_students}
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <span
+                      className={`badge text-xs ${
+                        c.is_published
+                          ? 'bg-green-500/15 text-green-400'
+                          : 'bg-yellow-500/15 text-yellow-400'
+                      }`}
+                    >
+                      {c.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+
+                      <button
+                        onClick={() => togglePublish(c.id, c.is_published)}
+                        className="p-1.5 rounded-lg hover:bg-white/5 transition-colors text-white/40 hover:text-white"
+                        title={c.is_published ? 'Unpublish' : 'Publish'}
+                      >
+                        {c.is_published ? (
+                          <XCircle size={15} className="text-red-400" />
+                        ) : (
+                          <CheckCircle size={15} className="text-green-400" />
+                        )}
+                      </button>
+
+                      {sessionRecordings[c.id] && (
+                        <button
+                          onClick={() =>
+                            deleteRecording(
+                              sessionRecordings[c.id].sessionId,
+                              c.id
+                            )
+                          }
+                          className="text-xs px-2 py-1 bg-red-500/15 text-red-400 hover:bg-red-500/25 rounded transition-colors"
+                          title="Delete recording from Cloudinary"
+                        >
+                          Del Rec
+                        </button>
+                      )}
+
+                    </div>
+                  </td>
+
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -637,3 +716,48 @@ export default function AdminPage() {
     </div>
   );
 }
+
+
+// ============================================================
+// PART 3: FRONTEND changes to AdminPage.jsx
+// ============================================================
+
+// 3a) The admin courses query needs to also fetch the linked
+//     session's recording_url. Update fetchData() in AdminPage:
+//
+//     The existing GET /admin/courses endpoint returns course rows.
+//     We need to add a separate call to get sessions with recordings,
+//     OR update adminController.listCourses to JOIN live_sessions.
+//
+//     Simplest approach: add a new state and fetch separately:
+
+// Add this state inside AdminPage():
+const [sessionRecordings, setSessionRecordings] = useState({});
+
+// Add this inside fetchData() alongside existing API calls:
+api.get('/admin/sessions').then(r => {
+  // Build a map of course_id -> { sessionId, recording_url }
+  const map = {};
+  (r.data.data || []).forEach(s => {
+    if (s.recording_url && s.course_id) {
+      map[s.course_id] = { sessionId: s.id, recordingUrl: s.recording_url };
+    }
+  });
+  setSessionRecordings(map);
+}).catch(() => {});
+
+// 3b) Add delete recording handler inside AdminPage():
+const deleteRecording = async (sessionId, courseId) => {
+  if (!window.confirm('Delete this recording? The course content will remain but the raw recording link will be removed.')) return;
+  try {
+    await api.delete(`/admin/sessions/${sessionId}/recording`);
+    toast.success('Recording deleted');
+    setSessionRecordings(prev => {
+      const updated = { ...prev };
+      delete updated[courseId];
+      return updated;
+    });
+  } catch {
+    // interceptor handles toast
+  }
+};

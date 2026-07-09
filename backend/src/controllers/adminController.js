@@ -471,3 +471,49 @@ exports.deactivateTeacherCode = async (req, res, next) => {
     res.json({ success: true, message: 'Code deactivated' });
   } catch (err) { next(err); }
 };
+
+
+// ============================================================
+// PART 1: ADD TO backend/src/controllers/adminController.js
+// Paste after the existing exports (e.g. after deleteMotivationalVideo)
+// ============================================================
+
+exports.deleteSessionRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [session] = await query(
+      'SELECT id, recording_url FROM live_sessions WHERE id = ?',
+      [sessionId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+    if (!session.recording_url) throw new AppError('No recording to delete', 404);
+
+    // Extract Cloudinary public_id from the URL and delete the asset
+    // Cloudinary URLs look like: https://res.cloudinary.com/cloud/video/upload/v123/sessions/abc.webm
+    try {
+      const { deleteAsset } = require('../services/cloudinary');
+      const urlParts = session.recording_url.split('/upload/');
+      if (urlParts.length === 2) {
+        // Remove version prefix (v1234567/) and file extension
+        const publicId = urlParts[1].replace(/^v\d+\//, '').replace(/\.[^.]+$/, '');
+        await deleteAsset(publicId, 'video');
+        logger.info(`Deleted Cloudinary recording: ${publicId}`);
+      }
+    } catch (err) {
+      // Don't fail if Cloudinary deletion fails — still clear the URL
+      logger.warn('Cloudinary recording deletion failed:', err.message);
+    }
+
+    // Clear the recording URL from the session
+    await query(
+      'UPDATE live_sessions SET recording_url = NULL WHERE id = ?',
+      [sessionId]
+    );
+
+    res.json({ success: true, message: 'Recording deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+

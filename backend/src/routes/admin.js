@@ -57,4 +57,15 @@ router.post('/videos', ctrl.addMotivationalVideo);
 router.get('/videos', ctrl.listMotivationalVideos);
 router.delete('/videos/:id', ctrl.deleteMotivationalVideo);
 
+
+// ============================================================
+// PART 2: ADD TO backend/src/routes/admin.js
+// Add this line before module.exports = router;
+// ============================================================
+
+router.delete('/sessions/:sessionId/recording', adminCtrl.deleteSessionRecording);
+
+
 module.exports = router;
+
+
