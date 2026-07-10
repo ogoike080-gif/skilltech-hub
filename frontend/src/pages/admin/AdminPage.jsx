@@ -715,19 +715,12 @@ export default function AdminPage() {
           {showCreateCourse && (
             <AdminCreateCourseModal
               onClose={() => setShowCreateCourse(false)}
-              onCreated={fetchData}
+              onCreated={() => {}}
             />
           )}
 
-          <button
-            onClick={() => navigate(`/instructor/courses/${course.id}/edit`)}
-            className="btn-ghost text-xs px-2 py-1"
-          >
-            Edit
-          </button>
-
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Courses ({courses.length})</h2>
+            <h2 className="text-lg font-semibold text-white">Courses</h2>
             <button onClick={() => setShowCreateCourse(true)} className="btn-primary flex items-center gap-2 text-sm">
               <Plus size={15} /> Create Course
             </button>
