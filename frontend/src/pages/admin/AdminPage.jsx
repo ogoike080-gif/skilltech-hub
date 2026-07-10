@@ -126,6 +126,7 @@ function Overview() {
 function UsersTab() {
   const [users, setUsers]   = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sessionRecordings, setSessionRecordings] = useState({});
   const [search, setSearch] = useState('');
   const [role, setRole]     = useState('');
   const [page, setPage]     = useState(1);
@@ -248,12 +249,37 @@ function UsersTab() {
 function CoursesTab() {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sessionRecordings, setSessionRecordings] = useState({});
 
   useEffect(() => {
     api.get('/admin/courses')
       .then(r => setCourses(r.data.data || []))
       .finally(() => setLoading(false));
+    api.get('/admin/sessions').then(r => {
+      const map = {};
+      (r.data.data || []).forEach(s => {
+        if (s.recording_url && s.course_id) {
+          map[s.course_id] = { sessionId: s.id, recordingUrl: s.recording_url };
+        }
+      });
+      setSessionRecordings(map);
+    }).catch(() => {});
   }, []);
+
+  const deleteRecording = async (sessionId, courseId) => {
+    if (!window.confirm('Delete this recording? The course will remain but the recording link will be removed.')) return;
+    try {
+      await api.delete(`/admin/sessions/${sessionId}/recording`);
+      toast.success('Recording deleted');
+      setSessionRecordings(prev => {
+        const updated = { ...prev };
+        delete updated[courseId];
+        return updated;
+      });
+    } catch {
+      // interceptor handles toast
+    }
+  };
 
   const togglePublish = async (id, isPublished) => {
     try {
