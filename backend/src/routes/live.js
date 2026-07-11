@@ -129,6 +129,7 @@ router.delete('/:sessionId/recording', protect, requireInstructor, ctrl.deleteMy
 
 
 router.post('/:sessionId/save-recording', protect, requireInstructor, ctrl.saveRecording);
+router.delete('/:sessionId/recording', protect, requireInstructor, ctrl.deleteMyRecording);
 module.exports = router;
 
 // ============================================================

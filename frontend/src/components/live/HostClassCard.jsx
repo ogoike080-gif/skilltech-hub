@@ -92,6 +92,8 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
   const [shareOpen, setShareOpen]   = useState(false);
   const [deleting, setDeleting]   = useState(false);
 
+  
+
   const formattedCode = session.meeting_code?.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
   const courseUrl = session.auto_course_slug
     ? `${SITE_URL}/courses/${session.auto_course_slug}`
@@ -168,6 +170,16 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
       setProcessing(false);
     }
   };
+
+  const deleteRecording = async () => {
+  if (!window.confirm('Delete this recording permanently? This cannot be undone.')) return;
+  setDeleting(true);
+  try {
+    await api.delete(`/live/${session.id}/recording`);
+    toast.success('Recording deleted');
+    onProcessed?.();
+  } catch {} finally { setDeleting(false); }
+};
 
   return (
     <div className="card border-brand-500/30">
@@ -277,4 +289,13 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
       )}
     </div>
   );
+
+<button onClick={deleteRecording} disabled={deleting}
+  className="btn-ghost w-full flex items-center justify-center gap-2 text-sm text-red-400 hover:text-red-300 mt-2">
+  {deleting
+    ? <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+    : <Trash2 size={14} />}
+  {deleting ? 'Deleting...' : 'Delete Recording'}
+</button>
+
 }
