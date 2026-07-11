@@ -60,13 +60,16 @@ export default function AiTutorPage() {
       abortRef.current = new AbortController();
 
       const API_BASE = import.meta.env.VITE_API_URL || 'https://skilltech-hub-production.up.railway.app';
-      const res = await fetch(\/api/ai/chat, {
+      const res = await fetch(`${API_BASE}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: userMsg, conversationId: convId }),
+        body: JSON.stringify({
+          message: userMsg,
+          conversationId: convId,
+        }),
         signal: abortRef.current.signal,
       });
 
@@ -189,7 +192,7 @@ export default function AiTutorPage() {
                 <textarea value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
                   placeholder="Ask me anything about your course, code, or tech concepts..."
-                  className="input flex-1 resize-none text-sm" rows={2} disabled={loading} />
+                  className="input flex-1 resize-none text-sm !text-black bg-white" rows={2} disabled={loading} />
                 <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()} className="btn-primary px-4 py-2 flex-shrink-0">
                   {loading ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
                 </button>
@@ -203,7 +206,7 @@ export default function AiTutorPage() {
               <h3 className="font-semibold text-white mb-3">Paste your code below</h3>
               <textarea value={codeInput} onChange={e => setCodeInput(e.target.value)}
                 placeholder="// Paste your code here..."
-                className="input flex-1 font-mono text-sm resize-none" rows={14} />
+                className="input flex-1 font-mono text-sm resize-none !text-black bg-white" rows={14} />
               <button onClick={handleExplainCode} disabled={loading || !codeInput.trim()}
                 className="btn-primary mt-4 flex items-center gap-2 justify-center">
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <><Bot size={16} /> Explain This Code</>}
