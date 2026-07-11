@@ -724,6 +724,48 @@ exports.saveRecording = async (req, res, next) => {
 };
 
 
+// ============================================================
+// PART 1: ADD TO liveController.js after exports.saveRecording
+// Instructor deletes their own recording
+// ============================================================
+
+exports.deleteMyRecording = async (req, res, next) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [session] = await query(
+      'SELECT * FROM live_sessions WHERE id = ? AND instructor_id = ?',
+      [sessionId, req.user.userId]
+    );
+    if (!session) throw new AppError('Session not found', 404);
+    if (!session.recording_url) throw new AppError('No recording to delete', 404);
+
+    // Delete from Cloudinary
+    try {
+      const { deleteAsset } = require('../services/cloudinary');
+      const urlParts = session.recording_url.split('/upload/');
+      if (urlParts.length === 2) {
+        const publicId = urlParts[1].replace(/^v\d+\//, '').replace(/\.[^.]+$/, '');
+        await deleteAsset(publicId, 'video');
+        logger.info(`Instructor deleted recording: ${publicId}`);
+      }
+    } catch (err) {
+      logger.warn('Cloudinary deletion failed:', err.message);
+    }
+
+    // Clear recording_url from session
+    await query(
+      'UPDATE live_sessions SET recording_url = NULL WHERE id = ?',
+      [sessionId]
+    );
+
+    res.json({ success: true, message: 'Recording deleted' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 
 // ============================================================
 // ADD TO routes/live.js — one new line (with multer for large files)

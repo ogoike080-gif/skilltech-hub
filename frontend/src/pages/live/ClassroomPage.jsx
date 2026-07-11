@@ -167,7 +167,7 @@ function ChatPanel({ sessionId, socket, currentUser, isInstructor, participants 
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && sendMsg()}
-            className="input text-sm py-2 flex-1 min-w-0"
+            className="input text-sm py-2 flex-1 min-w-0 bg-white text-gray-900 placeholder-gray-400"
             placeholder={privateTo ? `Message ${privateTo.name}...` : 'Send a message...'} />
           <button onClick={sendMsg} className="btn-primary px-3 py-2 text-sm flex-shrink-0">
             <Send size={14} />

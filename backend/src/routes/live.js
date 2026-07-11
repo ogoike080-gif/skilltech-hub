@@ -121,6 +121,12 @@ router.post(
 
 
 
+// ============================================================
+// PART 2: ADD TO routes/live.js before module.exports
+// ============================================================
+
+router.delete('/:sessionId/recording', protect, requireInstructor, ctrl.deleteMyRecording);
+
 
 router.post('/:sessionId/save-recording', protect, requireInstructor, ctrl.saveRecording);
 module.exports = router;

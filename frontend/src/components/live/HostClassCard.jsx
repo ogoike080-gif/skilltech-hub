@@ -1,7 +1,7 @@
 // frontend/src/components/live/HostClassCard.jsx
 
 import React, { useState } from 'react';
-import { Copy, Check, Radio, Play, Share2, Facebook, Instagram, Music2, X as XIcon, Link2, Video, Download, Loader, Square } from 'lucide-react';
+import { Copy, Check, Radio, Play, Share2, Facebook, Instagram, Music2, X as XIcon, Link2, Video, Download, Loader, Square, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
 
@@ -90,6 +90,7 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
   const [ending, setEnding]         = useState(false);
   const [processing, setProcessing] = useState(false);
   const [shareOpen, setShareOpen]   = useState(false);
+  const [deleting, setDeleting]   = useState(false);
 
   const formattedCode = session.meeting_code?.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
   const courseUrl = session.auto_course_slug
@@ -138,6 +139,17 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
     } finally {
       setEnding(false);
     }
+  };
+
+  const deleteRecording = async () => {
+    if (!window.confirm('Delete this recording permanently? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/live/${session.id}/recording`);
+      toast.success('Recording deleted');
+      onProcessed?.();
+    } catch {
+    } finally { setDeleting(false); }
   };
 
   const processAndPost = async () => {
@@ -252,6 +264,7 @@ export default function HostClassCard({ session, onStarted, onProcessed }) {
             className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
             <Share2 size={15} /> Share & Download
           </button>
+          <button onClick={deleteRecording} disabled={deleting} className="btn-ghost w-full flex items-center justify-center gap-2 text-sm text-red-400 hover:text-red-300 mt-2">{deleting ? <div className="w-3 h-3 border border-red-400/30 border-t-red-400 rounded-full animate-spin" /> : <Trash2 size={14} />}{deleting ? 'Deleting...' : 'Delete Recording'}</button>
           {shareOpen && (
             <ShareMenu
               courseUrl={courseUrl}

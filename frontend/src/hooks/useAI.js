@@ -14,7 +14,8 @@ export function useAI() {
 
     try {
       const token = localStorage.getItem('sth_token');
-      const res = await fetch('/api/ai/chat', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'https://skilltech-hub-production.up.railway.app';
+const res = await fetch(`${API_BASE}/api/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
