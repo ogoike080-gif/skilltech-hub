@@ -22,9 +22,10 @@ async function migrate() {
     [process.env.DB_NAME]
   );
   if (existing.length === 0) {
-    await connection.query(
-      `ALTER TABLE users ADD COLUMN preferred_school_id VARCHAR(36) NULL`
-    );
+    await connection.query(`
+      ALTER TABLE users
+      ADD COLUMN preferred_school_id CHAR(36) NULL
+    `);
     console.log('✅ Added users.preferred_school_id');
   } else {
     console.log('⏭️  users.preferred_school_id already exists');
@@ -34,12 +35,12 @@ async function migrate() {
   await connection.query(`
     CREATE TABLE IF NOT EXISTS motivational_videos (
       id VARCHAR(36) PRIMARY KEY,
-      school_id VARCHAR(36) NOT NULL,
+      school_id CHAR(36) NOT NULL,
       title VARCHAR(255) NOT NULL,
       video_url VARCHAR(500) NOT NULL,
       thumbnail_url VARCHAR(500) NULL,
       source ENUM('curated','recording') DEFAULT 'curated',
-      live_session_id VARCHAR(36) NULL,
+      live_session_id CHAR(36) NULL,
       is_active TINYINT(1) DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
@@ -55,9 +56,10 @@ async function migrate() {
     [process.env.DB_NAME]
   );
   if (lsExisting.length === 0) {
-    await connection.query(
-      `ALTER TABLE live_sessions ADD COLUMN school_id VARCHAR(36) NULL`
-    );
+    await connection.query(`
+      ALTER TABLE live_sessions
+      ADD COLUMN school_id CHAR(36) NULL
+    `);
     console.log('✅ Added live_sessions.school_id');
   } else {
     console.log('⏭️  live_sessions.school_id already exists');
