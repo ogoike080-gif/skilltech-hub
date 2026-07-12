@@ -120,11 +120,15 @@ exports.chat = async (req, res, next) => {
     let fullResponse = '';
 
     const stream = await getAnthropic().messages.stream({
-      model: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL || 'claude-3-5-sonnet-latest',
       max_tokens: 2048,
       system: systemPrompt,
       messages,
     });
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('ANTHROPIC_API_KEY is missing');
+}
 
     for await (const chunk of stream) {
       if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
@@ -134,7 +138,11 @@ exports.chat = async (req, res, next) => {
       }
     }
 
-    const usage = (await stream.finalMessage()).usage;
+    if (!fullResponse.trim()) {
+  throw new Error(
+    'Claude returned an empty response. Check your API key or model.'
+  );
+}
 
     // Save both messages to DB
     await query(
@@ -149,7 +157,12 @@ exports.chat = async (req, res, next) => {
     res.write(`data: ${JSON.stringify({ type: 'done', conversationId: convId })}\n\n`);
     res.end();
   } catch (err) {
-    logger.error('AI chat error:', err);
+    logger.error('AI chat error:', {
+  message: err.message,
+  status: err.status,
+  type: err.type,
+  stack: err.stack,
+});
     if (!res.headersSent) {
       next(err);
     } else {
@@ -186,7 +199,7 @@ Return a JSON array of questions. Each question must have:
 Return ONLY valid JSON, no other text.`;
 
     const response = await getAnthropic().messages.create({
-      model: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL || 'claude-sonnet-4-5',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -244,7 +257,7 @@ Create a practical, motivating study plan that:
 Format as a structured weekly schedule with daily goals.`;
 
     const response = await getAnthropic().messages.create({
-      model: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL || 'claude-sonnet-4-5',
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -274,7 +287,7 @@ ${code}
 ${question ? `Specific question: ${question}` : 'Explain what this code does, how it works, and any important concepts it demonstrates. Include any potential improvements or gotchas.'}`;
 
     const response = await getAnthropic().messages.create({
-      model: process.env.AI_MODEL || 'claude-sonnet-4-20250514',
+      model: process.env.AI_MODEL || 'claude-sonnet-4-5',
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     });
