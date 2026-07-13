@@ -1,26 +1,11 @@
 
+
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { AppError } = require('../utils/errors');
 const { logger } = require('../utils/logger');
 
-const ai = require("../config/gemini");
-
-
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-let _anthropic = null;
-function getAnthropic() {
-  if (!_anthropic) {
-    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set in .env');
-    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return _anthropic;
-}
-
+const ai = require('../config/gemini');
 // ── System prompt builder ──────────────────────────────────
 
 function buildSystemPrompt(context) {
