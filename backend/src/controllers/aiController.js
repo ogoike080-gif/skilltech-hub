@@ -1,8 +1,16 @@
-const Anthropic = require('@anthropic-ai/sdk');
+
 const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/database');
 const { AppError } = require('../utils/errors');
 const { logger } = require('../utils/logger');
+
+const ai = require("../config/gemini");
+
+
+
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
 let _anthropic = null;
 function getAnthropic() {
@@ -71,6 +79,37 @@ exports.chat = async (req, res, next) => {
       );
       if (!conv) throw new AppError('Conversation not found', 404);
     }
+
+    exports.chat = async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({
+        success: false,
+        message: "Message is required",
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: message,
+    });
+
+    return res.json({
+      success: true,
+      reply: response.text,
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
 
     // Load conversation history (last 20 messages)
     const history = await query(
